@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Livreto — Imposição de PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<style>
+:root{--bg:#f4f5f7;--pn:#fff;--tx:#1b1f27;--mu:#667085;--bd:#dfe3ea;--ac:#2f5bea;--ok:#13795b;--wr:#b25e09;--er:#c0262d;--pg:#fff;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101319;--pn:#181c24;--tx:#e8ebf1;--mu:#98a2b3;--bd:#2a303c;--ac:#7c9bff;--ok:#4cc9a0;--wr:#f0b35a;--er:#ff7b80;--pg:#232936;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101319;--pn:#181c24;--tx:#e8ebf1;--mu:#98a2b3;--bd:#2a303c;--ac:#7c9bff;--ok:#4cc9a0;--wr:#f0b35a;--er:#ff7b80;--pg:#232936;color-scheme:dark}
+*{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 22px;border-bottom:1px solid var(--bd);background:var(--pn);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h1{font-size:18px;margin:0;letter-spacing:-.01em}header span{color:var(--mu);font-size:12.5px}
+main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px;max-width:1280px;margin:auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--pn);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);margin:0 0 10px}
+label{display:block;font-size:12.5px;color:var(--mu);margin:8px 0 3px}
+input,select,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:7px 9px;width:100%}
+input[type=checkbox]{width:auto;margin-right:6px}.ck{display:flex;align-items:center;color:var(--tx);margin:6px 0}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+button{cursor:pointer;width:auto;font-weight:600}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}button:disabled{opacity:.45;cursor:not-allowed}
+#drop{border:2px dashed var(--bd);border-radius:12px;padding:22px;text-align:center;color:var(--mu);cursor:pointer}#drop.on{border-color:var(--ac);color:var(--ac)}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px;margin-top:10px}.meta b{color:var(--mu);font-weight:500}
+details summary{cursor:pointer;font-weight:600;margin:6px 0}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.stage{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.sheet{display:flex;position:relative;width:min(100%,560px);background:var(--pn);border:1px solid var(--mu);box-shadow:0 2px 10px #0002}
+.sheet:after{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed var(--mu)}
+.pg{overflow:hidden;min-height:0;flex:1;display:flex;align-items:center;justify-content:center;font-size:clamp(22px,5vw,40px);font-weight:700;background:var(--pg);margin:6px;border-radius:2px}.pg i{font-size:12px;font-weight:400;color:var(--mu)}
+.cap{font-size:12.5px;color:var(--mu);text-align:center}
+.nav{display:flex;gap:8px;align-items:center;justify-content:center}
+.msg{padding:6px 10px;border-radius:8px;margin:4px 0;font-size:13px;border:1px solid var(--bd)}.ok{color:var(--ok)}.wr{color:var(--wr)}.er{color:var(--er);font-weight:600}
+pre{margin:0;font:12.5px/1.6 ui-monospace,monospace;white-space:pre-wrap}
+</style></head><body>
+<header><h1>Livreto — imposição de PDF</h1><span>Processamento 100% local · nenhum arquivo sai do seu navegador</span></header>
+<main>
+<div>
+ <div class="card"><h2>1 · Arquivo</h2>
+  <div id="drop">Arraste um PDF aqui ou clique para selecionar</div><input id="file" type="file" accept="application/pdf" hidden>
+  <div id="meta" class="meta"></div><button id="rm" hidden style="margin-top:8px">Remover arquivo</button></div>
+ <div class="card"><h2>2 · Formato e modo</h2>
+  <label>Formato do livreto</label><select id="fmt"><option value="297x210">A4 paisagem → A5 (padrão)</option><option value="420x297">A3 → A4</option><option value="210x148">A5 → A6</option><option value="279.4x215.9">Carta → meio ofício</option><option value="custom">Personalizado</option></select>
+  <div class="r2" id="cust" hidden><div><label>Folha: largura (mm)</label><input id="cw" type="number" value="297"></div><div><label>Folha: altura (mm)</label><input id="ch" type="number" value="210"></div></div>
+  <label>Modo</label><select id="mode"><option value="b">Livreto com imposição (grampo canoa)</option><option value="s">Sem imposição: 2 páginas lado a lado (só comparação)</option></select>
+  <label>Páginas por caderno (vazio = livreto único)</label><input id="sig" type="number" min="0" step="4" list="sl" placeholder="ex.: 16"><datalist id="sl"><option>8<option>12<option>16<option>20<option>24<option>32</datalist>
+  <label>Páginas a usar (ex.: 1-10, 12, 15-20)</label><input id="rng" placeholder="todas">
+  <div class="ck"><input type="checkbox" id="kb" checked><span>Manter a contracapa na última posição (em brancas antes dela)</span></div></div>
+ <div class="card"><h2>3 · Frente e verso</h2>
+  <label>Virada do papel na impressora</label><select id="flip"><option value="short">Borda curta (padrão para folha paisagem)</option><option value="long">Borda longa (gira o verso 180° no arquivo)</option></select>
+  <details><summary>Margens e aparência</summary><div class="r3"><div><label>Interna</label><input id="mi" type="number" value="8"></div><div><label>Externa</label><input id="mo" type="number" value="8"></div><div><label>Vertical</label><input id="mv" type="number" value="8"></div></div>
+  <label>Ajuste das páginas</label><select id="fit"><option value="f">Caber sem cortar nem deformar (padrão)</option><option value="o">Tamanho original, centralizado</option></select>
+  <div class="ck"><input type="checkbox" id="mk" checked><span>Marcas de dobra</span></div><div class="ck"><input type="checkbox" id="lb" checked><span>Rótulo técnico (folha / frente / verso / caderno)</span></div><div class="ck"><input type="checkbox" id="rv"><span>“Só versos” em ordem inversa (impressão manual)</span></div></details></div>
+ <div class="card"><h2>4 · Exportar</h2><div id="chunksel"></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="p" id="dAll" disabled>PDF completo</button><button id="dF" disabled>Só frentes</button><button id="dB" disabled>Só versos</button></div>
+  <div style="margin-top:8px;display:flex;gap:6px"><button id="dC" hidden>Baixar caderno</button><button id="dR">Relatório</button><button id="test">Rodar testes</button></div></div>
+</div>
+<div>
+ <div class="card"><div class="tabs"><button data-v="sheets" class="on">Folhas de impressão</button><button data-v="order">Ordem de imposição</button><button data-v="sim">Livreto montado</button></div><div id="view"><div class="cap">Importe um PDF para começar.</div></div></div>
+ <div class="card"><h2>Validação</h2><div id="val" class="cap">—</div></div>
+ <div class="card"><h2>Como imprimir</h2><div id="how"></div></div>
+ <div class="card" id="tres" hidden><h2>Testes automatizados</h2><pre id="tout"></pre></div>
+</div></main>
+<script>
+const $=i=>document.getElementById(i),MM=72/25.4;let S=null,P=null,O=null,V='sheets',ix=0;
+/* ===== Motor de imposição (independente da interface) ===== */
+function plan(m0,o){
+ let seq=[...Array(m0).keys()];
+ if(!o.booklet){if(m0%2)seq.push(-1);const sh=[];for(let i=0;i<seq.length;i+=2)sh.push({c:0,i:i/2,f:[seq[i],seq[i+1]],b:null});return{seq,sheets:sh,chunks:[seq]}}
+ const pad=(4-m0%4)%4;
+ if(pad){if(o.keepBack&&m0>1){const l=seq.pop();seq.push(...Array(pad).fill(-1),l)}else seq.push(...Array(pad).fill(-1))}
+ const s=o.sig>0?Math.ceil(o.sig/4)*4:seq.length,chunks=[],sheets=[];
+ for(let i=0;i<seq.length;i+=s)chunks.push(seq.slice(i,i+s));
+ chunks.forEach((Q,c)=>{const m=Q.length;for(let i=0;i<m/4;i++)sheets.push({c,i,f:[Q[m-1-2*i],Q[2*i]],b:[Q[2*i+1],Q[m-2-2*i]]})});
+ return{seq,sheets,chunks};
+}
+function readOrder(sh){const k=sh.length,r=[];for(let j=0;j<k;j++)r.push(sh[j].f[1],sh[j].b[0]);for(let j=k-1;j>=0;j--)r.push(sh[j].b[1],sh[j].f[0]);return r}
+function verify(pl,m0,booklet){
+ const e=[],real=pl.seq.filter(x=>x>=0);
+ if(real.length!==m0||new Set(real).size!==m0)e.push("Páginas faltando ou duplicadas na sequência.");
+ for(let i=0;i<m0;i++)if(!real.includes(i)){e.push("Página "+(i+1)+" não foi usada.");break}
+ if(booklet){
+  if(pl.seq.length%4)e.push("Total de páginas não é múltiplo de 4.");
+  pl.chunks.forEach((Q,c)=>{if(Q.length%4)e.push("Caderno "+(c+1)+" inválido.");const r=readOrder(pl.sheets.filter(s=>s.c===c));if(r.length!==Q.length||r.some((x,i)=>x!==Q[i]))e.push("Caderno "+(c+1)+": a simulação de montagem não reproduz a ordem de leitura.")});
+ }
+ return e;
+}
+function selfTest(){
+ const out=[];let n=0,bad=0;
+ const f16=plan(16,{booklet:true,sig:0}).sheets.map(s=>s.f+"|"+s.b).join(" ; ");
+ const ok16=f16==="16,1|2,15 ; 14,3|4,13 ; 12,5|6,11 ; 10,7|8,9".replace(/(\d+),(\d+)/g,(a,x,y)=>(x-1)+","+(y-1));
+ out.push((ok16?"✓":"✗")+" 16 páginas = tabela da especificação (16/1·2/15, 14/3·4/13, 12/5·6/11, 10/7·8/9)");if(!ok16)bad++;
+ for(let m=1;m<=130;m++)for(const sig of [0,8,12,16,20,24,32])for(const kb of [true,false]){n++;
+  const e=verify(plan(m,{booklet:true,sig,keepBack:kb}),m,true);if(e.length){bad++;if(bad<6)out.push("✗ "+m+" págs, caderno "+sig+": "+e[0])}}
+ out.push((bad?"✗":"✓")+" "+n+" combinações (1–130 págs × cadernos × contracapa) simuladas: "+(bad?bad+" falhas":"todas reproduzem a ordem de leitura exata, incluindo brancas"));
+ return out.join("\n");
+}
+/* ===== Utilidades ===== */
+function parseRange(s,n){if(!s.trim())return[...Array(n).keys()];const o=[];for(const p of s.split(",")){const m=p.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!m)throw Error("Intervalo inválido: "+p);const a=+m[1],b=m[2]?+m[2]:a;if(a<1||b>n||a>b)throw Error("Fora do documento: "+p);for(let i=a;i<=b;i++)o.push(i-1)}return o}
+function opts(){let W,H;if($("fmt").value==="custom"){W=+$("cw").value;H=+$("ch").value}else[W,H]=$("fmt").value.split("x").map(Number);
+ return{W,H,booklet:$("mode").value==="b",sig:+$("sig").value||0,keepBack:$("kb").checked,flip:$("flip").value,mi:+$("mi").value,mo:+$("mo").value,mv:+$("mv").value,fit:$("fit").value,rv:$("rv").checked,mk:$("mk").checked,lb:$("lb").checked}}
+const lab=n=>n<0?"<i>em branco</i>":S.L[n]+1;
+const cell=(n,st)=>'<div class="pg"'+(n!=null&&n>=0?' data-s="'+S.L[n]+'"':'')+(st?' style="'+st+'"':'')+'>'+(n==null?'':lab(n))+'</div>';
+let PJ=null;const TH={};
+async function thumb(i){if(TH[i])return TH[i];if(!window.pdfjsLib)return null;try{pdfjsLib.GlobalWorkerOptions.workerSrc="pdf.worker.min.js";PJ=PJ||await pdfjsLib.getDocument({data:S.bytes.slice()}).promise;const p=await PJ.getPage(i+1),v=p.getViewport({scale:1}),vp=p.getViewport({scale:260/v.width}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await p.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;return TH[i]=c.toDataURL("image/jpeg",.75)}catch(x){return null}}
+function fillThumbs(){document.querySelectorAll("[data-s]").forEach(async el=>{const u=await thumb(+el.dataset.s);if(u&&el.isConnected)el.innerHTML='<img src="'+u+'" style="max-width:100%;max-height:100%;object-fit:contain">'})}
+/* ===== Geração do PDF ===== */
+async function build(which,chunk){
+ const{PDFDocument,StandardFonts,degrees,rgb}=PDFLib,W=O.W*MM,H=O.H*MM;
+ const src=await PDFDocument.load(S.bytes,{ignoreEncryption:true}),out=await PDFDocument.create(),font=await out.embedFont(StandardFonts.Helvetica);
+ const used=[...new Set(P.seq.filter(x=>x>=0).map(x=>S.L[x]))],emb=await out.embedPdf(src,used),map=new Map(used.map((u,i)=>[u,emb[i]]));
+ let count=0;
+ for(const sh of(which==="back"&&O.rv?[...P.sheets].reverse():P.sheets)){if(chunk>=0&&sh.c!==chunk)continue;
+  for(const side of["f","b"]){if(side==="f"&&which==="back")continue;if(side==="b"&&(which==="front"||!sh.b))continue;
+   const pg=out.addPage([W,H]),fl=side==="b"&&O.flip==="long",pair=sh[side];count++;
+   pair.forEach((n,k)=>{if(n<0)return;const e=map.get(S.L[n]),aw=W/2-O.mi*MM-O.mo*MM,ah=H-2*O.mv*MM,ax=k===0?O.mo*MM:W/2+O.mi*MM,ay=O.mv*MM;
+    const rot=S.rot[S.L[n]],ew0=rot%180?e.height:e.width,eh0=rot%180?e.width:e.height,sc=O.fit==="f"?Math.min(aw/ew0,ah/eh0):1,ew=ew0*sc,eh=eh0*sc,w=e.width*sc,h=e.height*sc;
+    let rx=ax+(aw-ew)/2,ry=ay+(ah-eh)/2;if(fl){rx=W-rx-ew;ry=H-ry-eh}
+    const t=(rot+(fl?180:0))%360,an=t===0?[rx,ry]:t===90?[rx,ry+w]:t===180?[rx+w,ry+h]:[rx+h,ry];
+    pg.drawPage(e,{x:an[0],y:an[1],xScale:sc,yScale:sc,rotate:degrees(-t)})});
+   if(O.mk)for(const[y0,y1]of[[0,10],[H-10,H]])pg.drawLine({start:{x:W/2,y:y0},end:{x:W/2,y:y1},thickness:.5,color:rgb(.3,.3,.3)});
+   if(O.lb){const t=(O.booklet?"Caderno "+(sh.c+1)+" · Folha "+(sh.i+1)+" · ":"Folha "+(sh.i+1)+" · ")+(side==="f"?"FRENTE":"VERSO"),tw=font.widthOfTextAtSize(t,6);
+    fl?pg.drawText(t,{x:W/2+tw/2,y:H-3,size:6,font,rotate:degrees(180),color:rgb(.4,.4,.4)}):pg.drawText(t,{x:W/2-tw/2,y:3,size:6,font,color:rgb(.4,.4,.4)})}
+  }}
+ if(!count)throw Error("Nada a exportar.");
+ return out.save();
+}
+function dl(bytes,name){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));a.download=name;a.click()}
+async function exp(which,chunk){
+ if(!S||!P)return;const e=verify(P,S.L.length,O.booklet);if(e.length){alert("Exportação bloqueada:\n"+e.join("\n"));return}
+ document.body.style.cursor="progress";try{const b=await build(which,chunk??-1),base=S.name.replace(/\.pdf$/i,"");
+  dl(b,base+"-"+(chunk>=0?"caderno"+(chunk+1):which==="all"?"livreto":which==="front"?"frentes":"versos")+".pdf")}catch(x){alert("Erro ao gerar o PDF: "+x.message)}finally{document.body.style.cursor=""}
+}
+/* ===== Interface ===== */
+async function load(f){
+ if(!f||f.type!=="application/pdf"&&!/\.pdf$/i.test(f.name))return alert("Selecione um arquivo PDF.");
+ try{const bytes=new Uint8Array(await f.arrayBuffer()),d=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true}),pgs=d.getPages(),rot=pgs.map(p=>((p.getRotation().angle%360)+360)%360),sz=pgs.map((p,i)=>{const s=p.getSize();return rot[i]%180?{width:s.height,height:s.width}:s});
+  PJ=null;for(const k in TH)delete TH[k];S={name:f.name,bytes,n:pgs.length,sz,rot,size:f.size};
+  const mixed=new Set(sz.map(s=>Math.round(s.width)+"x"+Math.round(s.height))).size>1;
+  $("meta").innerHTML="<b>Arquivo</b><span>"+f.name+"</span><b>Páginas</b><span>"+S.n+"</span><b>Tamanho</b><span>"+(S.size/1048576).toFixed(2)+" MB</span><b>Dimensões</b><span>"+(sz[0].width/MM).toFixed(0)+" × "+(sz[0].height/MM).toFixed(0)+" mm"+(mixed?" (⚠ páginas de tamanhos diferentes)":"")+"</span>";
+  $("rm").hidden=false;S.mixed=mixed;ix=0;upd()}catch(x){alert("Não foi possível ler o PDF: "+x.message)}
+}
+function upd(){
+ if(!S){$("view").innerHTML='<div class="cap">Importe um PDF para começar.</div>';$("val").textContent="—";["dAll","dF","dB"].forEach(i=>$(i).disabled=true);return}
+ O=opts();const msgs=[];
+ const aw0=O.W/2-O.mi-O.mo,ah0=O.H-2*O.mv;
+ if(!(O.W>0&&O.H>0)||![O.mi,O.mo,O.mv].every(v=>v>=0)||!(aw0>10&&ah0>10)){$("val").innerHTML='<div class="msg er">✗ Dimensões ou margens inválidas: a área útil da página ficou muito pequena.</div>';["dAll","dF","dB"].forEach(i=>$(i).disabled=true);return}
+ if(O.booklet&&O.H>O.W)msgs.push(["wr","⚠ A folha está em retrato; para livreto use folha paisagem (largura maior que a altura)."]);
+ try{S.L=parseRange($("rng").value,S.n)}catch(x){$("val").innerHTML='<div class="msg er">✗ '+x.message+"</div>";["dAll","dF","dB"].forEach(i=>$(i).disabled=true);return}
+ P=plan(S.L.length,O);const e=verify(P,S.L.length,O.booklet),blanks=P.seq.filter(x=>x<0).length;
+ e.forEach(x=>msgs.push(["er","✗ "+x]));
+ if(!e.length)msgs.push(["ok","✓ "+S.L.length+" páginas usadas uma única vez · "+P.sheets.length+" folha(s) · "+(O.booklet?P.chunks.length+" caderno(s) · ":"")+"montagem simulada confere com a ordem de leitura"]);
+ if(blanks)msgs.push(["wr","⚠ "+blanks+" página(s) em branco adicionada(s) para completar múltiplos de 4"]);
+ if(S.mixed)msgs.push(["wr","⚠ O PDF tem páginas de tamanhos diferentes; cada uma é ajustada proporcionalmente à área disponível."]);
+ if(O.fit==="o"){const aw=O.W/2-O.mi-O.mo,ah=O.H-2*O.mv;if(S.sz.some(s=>s.width/MM>aw+.5||s.height/MM>ah+.5))msgs.push(["er","✗ Tamanho original excede a área útil: haveria corte. Use “Caber sem cortar”."])}
+ if(O.booklet&&P.chunks.some(c=>c.length>80))msgs.push(["wr","⚠ Caderno com mais de 20 folhas: o deslocamento das páginas internas fica visível. Considere cadernos de 16–32 páginas."]);
+ msgs.push(["ok","✓ Área final de cada página: "+(O.W/2).toFixed(0)+" × "+O.H.toFixed(0)+" mm"]);
+ $("val").innerHTML=msgs.map(m=>'<div class="msg '+m[0]+'">'+m[1]+"</div>").join("");
+ const blocked=e.length>0||msgs.some(m=>m[1].startsWith("✗ Tamanho"));
+ $("dAll").disabled=blocked;$("dF").disabled=blocked;$("dB").disabled=blocked||!O.booklet;
+ const nc=P.chunks.length;$("dC").hidden=nc<2;$("chunksel").innerHTML=nc>1?'<select id="cs">'+P.chunks.map((_,i)=>"<option value="+i+">Caderno "+(i+1)+"</option>").join("")+"</select>":"";
+ const long=O.flip==="long";
+ $("how").innerHTML="<div class='msg'><b>Frente e verso automático:</b> abra o PDF, imprima em <b>tamanho real (100%)</b>, “Ajustar à página” desligado, papel "+O.W+"×"+O.H+" mm. Virada: <b>"+(long?"borda longa":"borda curta")+"</b>"+(long?" (o verso já está girado 180° no arquivo).":" — como virar a página de um livro; é o padrão para folha paisagem. Se o verso sair de cabeça para baixo, troque para “borda longa” aqui e gere de novo.")+"</div><div class='msg'><b>Manual / sem duplex:</b> baixe “Só frentes” e imprima. Recoloque a pilha na bandeja sem mudar a ordem, com o lado impresso para o lado que sua impressora exigir, e imprima “Só versos”. Teste antes com um livreto de 4 páginas e marque a folha para confirmar o lado.</div><div class='msg'><b>Montagem:</b> empilhe as folhas na ordem (a folha 1 por fora), dobre ao meio e grampeie na dobra."+(nc>1?" Cada caderno é montado e grampeado separadamente.":"")+"</div>";
+ render();
+}
+function pair(a,l){return'<div class="sheet" style="aspect-ratio:'+O.W+"/"+O.H+'">'+cell(a[0])+cell(a[1])+"</div>"}
+function render(){
+ if(!P)return;let h="";const sh=P.sheets;
+ if(V==="sheets"){ix=Math.min(ix,sh.length-1);const s=sh[ix];
+  h='<div class="nav"><button onclick="ix=Math.max(0,ix-1);render()">←</button><b>Folha '+(ix+1)+" de "+sh.length+(O.booklet?" · caderno "+(s.c+1):"")+'</b><button onclick="ix=Math.min(P.sheets.length-1,ix+1);render()">→</button></div><div class="cap">FRENTE</div>'+pair(s.f)+(s.b?'<div class="cap">↻ virar pela borda '+(O.flip==="long"?"longa (verso girado no arquivo)":"curta")+'</div><div class="cap">VERSO</div>'+pair(s.b):'<div class="cap">Modo sem imposição: só uma face. Não serve para montar livreto.</div>')}
+ if(V==="order")h="<pre>"+sh.map(s=>"FOLHA "+(s.i+1)+(O.booklet?" (caderno "+(s.c+1)+")":"")+" — FRENTE\n["+(s.f[0]<0?"—":S.L[s.f[0]]+1)+"] ["+(s.f[1]<0?"—":S.L[s.f[1]]+1)+"]"+(s.b?"\nFOLHA "+(s.i+1)+" — VERSO\n["+(s.b[0]<0?"—":S.L[s.b[0]]+1)+"] ["+(s.b[1]<0?"—":S.L[s.b[1]]+1)+"]":"")).join("\n\n")+"</pre>";
+ if(V==="sim"){
+  if(!O.booklet)h='<div class="cap">A simulação só se aplica ao modo livreto.</div>';else{
+  const r=[];P.chunks.forEach((Q,c)=>r.push(...readOrder(sh.filter(s=>s.c===c))));const sp=[[null,r[0]]];for(let i=1;i<r.length;i+=2)sp.push([r[i],r[i+1]]);
+  ix=Math.min(ix,sp.length-1);const q=sp[ix];
+  h='<div class="cap">Folhas encaixadas, dobradas e grampeadas: ordem de leitura reconstruída a partir das folhas impressas.</div><div class="nav"><button onclick="ix=Math.max(0,ix-1);render()">←</button><b>'+(ix===0?"Capa":ix===sp.length-1?"Contracapa":"Páginas abertas "+ix)+'</b><button onclick="ix=Math.min('+(sp.length-1)+',ix+1);render()">→</button></div><div class="sheet" style="aspect-ratio:'+O.W+"/"+O.H+';box-shadow:0 2px 10px #0003,inset 0 0 0 1px var(--bd)">'+cell(q[0],q[0]==null?"background:transparent":"")+cell(q[1],q[1]==null?"background:transparent":"")+"</div>"}}
+ $("view").innerHTML='<div class="stage">'+h+"</div>";fillThumbs();
+}
+/* ===== Eventos ===== */
+const dz=$("drop");dz.onclick=()=>$("file").click();$("file").onchange=e=>load(e.target.files[0]);
+dz.ondragover=e=>{e.preventDefault();dz.classList.add("on")};dz.ondragleave=()=>dz.classList.remove("on");dz.ondrop=e=>{e.preventDefault();dz.classList.remove("on");load(e.dataTransfer.files[0])};
+$("rm").onclick=()=>{S=P=null;$("meta").innerHTML="";$("rm").hidden=true;$("file").value="";upd()};
+document.querySelectorAll("input,select").forEach(el=>{if(el.id!=="file")el.addEventListener("input",()=>{$("cust").hidden=$("fmt").value!=="custom";upd()})});
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");V=b.dataset.v;ix=0;render()});
+$("dAll").onclick=()=>exp("all");$("dF").onclick=()=>exp("front");$("dB").onclick=()=>exp("back");$("dC").onclick=()=>exp("all",+$("cs").value);
+$("dR").onclick=()=>{if(!S||!P)return;const n=x=>x<0?"—":S.L[x]+1,t="RELATÓRIO DE IMPRESSÃO — "+S.name+"\n"+$("val").innerText+"\n\n"+P.sheets.map(s=>"Caderno "+(s.c+1)+" · Folha "+(s.i+1)+"\n  Frente: ["+n(s.f[0])+"] ["+n(s.f[1])+"]"+(s.b?"\n  Verso:  ["+n(s.b[0])+"] ["+n(s.b[1])+"]":"")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/plain"}));a.download="relatorio-impressao.txt";a.click()};
+$("test").onclick=()=>{$("tres").hidden=false;$("tout").textContent=selfTest()};
+</script></body></html>
