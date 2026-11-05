@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Mock ChatGPT (somente para testes)</title>
+<style>
+  body{font-family:sans-serif;margin:0;background:#222;color:#eee}
+  main{padding:12px 12px 140px}
+  article{margin:8px 0;padding:8px;background:#333;border-radius:6px}
+  form{position:fixed;left:0;right:0;bottom:0;padding:10px;background:#111}
+  #prompt-textarea{min-height:40px;max-height:100px;overflow:auto;border:1px solid #555;padding:6px;white-space:pre-wrap}
+  img{display:block}
+</style></head>
+<body>
+<main id="thread"></main>
+<form id="composer">
+  <div id="prompt-textarea" contenteditable="true"></div>
+  <button type="button" id="send" data-testid="send-button" aria-label="Send prompt" disabled>↑</button>
+  <button type="button" id="stop" data-testid="stop-button" aria-label="Stop streaming" style="display:none">■</button>
+</form>
+<script>
+  // Configuração controlada pelo teste: modo de resposta por prompt enviado (0,1,2…)
+  window.mock = { modes: [], defaultMode: 'image', genMs: 1200 };
+  window.__log = [];
+  const log = (ev, n, extra) => window.__log.push(Object.assign({ t: Date.now(), ev, n }, extra || {}));
+  const $ = id => document.getElementById(id);
+  const box = $('prompt-textarea'), sendBtn = $('send'), stopBtn = $('stop'), thread = $('thread');
+  let sent = 0, turn = 0;
+
+  // Simula o editor do ChatGPT: trata "paste" inserindo o texto puro.
+  box.addEventListener('paste', e => {
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
+  box.addEventListener('input', () => { sendBtn.disabled = !box.innerText.trim(); });
+
+  function imageDataUrl(label, blur) {
+    const c = document.createElement('canvas'); c.width = c.height = 320;
+    const g = c.getContext('2d');
+    g.fillStyle = blur ? '#556' : `hsl(${(label * 47) % 360},60%,45%)`; g.fillRect(0, 0, 320, 320);
+    g.fillStyle = '#fff'; g.font = '60px sans-serif'; g.fillText(String(label) + (blur ? '~' : ''), 100, 180);
+    return c.toDataURL();
+  }
+  function addTurn(role, html) {
+    const a = document.createElement('article');
+    a.setAttribute('data-testid', 'conversation-turn-' + (turn++));
+    const d = document.createElement('div');
+    d.setAttribute('data-message-author-role', role);
+    if (typeof html === 'string') d.textContent = html; else d.appendChild(html);
+    a.appendChild(d); thread.appendChild(a); return d;
+  }
+
+  sendBtn.addEventListener('click', () => {
+    const text = box.innerText;
+    const idx = sent++;
+    const mode = window.mock.modes[idx] || window.mock.defaultMode;
+    addTurn('user', text);
+    box.innerHTML = ''; sendBtn.disabled = true;
+    sendBtn.style.display = 'none'; stopBtn.style.display = '';
+    log('user_sent', idx + 1, { text });
+    const gen = window.mock.genMs;
+    const done = () => { stopBtn.style.display = 'none'; sendBtn.style.display = ''; log('stop_hidden', idx + 1); };
+
+    if (mode === 'image') {
+      const wrap = document.createElement('div');
+      const img = document.createElement('img');
+      img.style.width = img.style.height = '300px';
+      wrap.appendChild(img); addTurn('assistant', wrap);
+      setTimeout(() => { img.src = imageDataUrl(idx + 1, true); }, gen * 0.4);      // prévia (blur)
+      setTimeout(() => { img.src = imageDataUrl(idx + 1, false); log('image_shown', idx + 1); }, gen);
+      setTimeout(done, gen + 300);
+    } else {
+      const msg = mode === 'limit' ? "You've reached the image generation limit. Try again later." : 'Posso ajudar com isso, mas qual estilo você prefere?';
+      setTimeout(() => { addTurn('assistant', msg); log('text_shown', idx + 1); }, gen * 0.5);
+      setTimeout(done, gen * 0.5 + 200);
+    }
+  });
+</script>
+</body></html>

@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Nautilus – Fila de Imagens para ChatGPT",
+  "version": "1.0.0",
+  "description": "Cole vários prompts numerados e gere as imagens uma após a outra no ChatGPT, sem copiar e colar.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Nautilus – Fila de Imagens",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["state.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

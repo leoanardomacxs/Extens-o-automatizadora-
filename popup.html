@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nautilus – Fila de Imagens</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Nautilus</h1>
+    <span id="statusPill" class="pill">Pronta</span>
+  </header>
+
+  <section>
+    <label for="input">Prompts numerados</label>
+    <textarea id="input" spellcheck="false" placeholder="1. Nome da primeira carta&#10;Descrição e prompt completo…&#10;&#10;2. Nome da segunda carta&#10;Descrição e prompt completo…"></textarea>
+    <div class="row">
+      <button id="btnAnalyze" class="btn">Analisar prompts</button>
+      <button id="btnClear" class="btn ghost">Limpar</button>
+    </div>
+    <div id="notes"></div>
+  </section>
+
+  <section>
+    <div class="stats">
+      <div><b id="sTotal">0</b><span>total</span></div>
+      <div><b id="sDone">0</b><span>concluídas</span></div>
+      <div><b id="sCurrent">–</b><span>em andamento</span></div>
+      <div><b id="sPending">0</b><span>pendentes</span></div>
+      <div><b id="sErrors">0</b><span>com erro</span></div>
+    </div>
+    <div class="bar"><div id="barFill"></div></div>
+    <div id="message" class="message" hidden></div>
+    <ol id="list" class="list"></ol>
+  </section>
+
+  <section class="controls">
+    <button id="btnStart" class="btn primary">Iniciar</button>
+    <button id="btnPause" class="btn">Pausar</button>
+    <button id="btnContinue" class="btn primary">Continuar</button>
+    <button id="btnCancel" class="btn danger">Cancelar</button>
+    <button id="btnReset" class="btn ghost">Reiniciar fila</button>
+  </section>
+  <p id="times" class="times"></p>
+
+  <script src="state.js"></script>
+  <script src="parser.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
