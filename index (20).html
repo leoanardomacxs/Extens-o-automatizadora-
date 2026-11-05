@@ -1,0 +1,1496 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gerador de Mapas Hexagonais</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1821;--pn:#14232f;--pn2:#1c3142;--ln:#2b4559;--tx:#e9e3d1;--mut:#8ea4b2;--ac:#d9a441;--ok:#4fb39b;--bad:#e5604f}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;gap:6px;align-items:center;padding:8px 12px;background:var(--pn);border-bottom:2px solid var(--ac);flex-wrap:wrap}
+header h1{font:700 17px Cinzel,Georgia,serif;margin:0 auto 0 0;letter-spacing:.04em}
+#saved{font-size:12px;color:var(--mut)}
+main{flex:1;display:grid;grid-template-columns:340px 1fr 260px;min-height:0}
+aside{background:var(--pn);overflow:auto;min-height:0}
+#left{border-right:1px solid var(--ln)}
+#right{border-left:1px solid var(--ln);padding:12px}
+#tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px;position:sticky;top:0;background:var(--pn);z-index:2;border-bottom:1px solid var(--ln)}
+#tabs button{flex:1 1 28%}
+#tabs button.on,.tool.on{background:var(--ac);color:#1a1405;border-color:var(--ac)}
+#panel{padding:10px 12px 60px}
+#stage{position:relative;min-width:0;min-height:0;background:#0a1219}
+#cv{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#cv.drop,.zone.drop{outline:3px dashed var(--ac);outline-offset:-3px}
+#tb{position:absolute;left:10px;bottom:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;pointer-events:none}
+#tb>*{pointer-events:auto}
+#tb select{background:var(--pn2);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:6px}
+button{background:var(--pn2);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer}
+button:hover{border-color:var(--ac)}
+button:disabled{opacity:.4;cursor:default}
+button.pri{background:var(--ac);color:#1a1405;border-color:var(--ac);font-weight:600}
+button.dan{color:var(--bad)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.f{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+.f span{color:var(--mut);flex:1}
+.f input:not([type=checkbox]):not([type=color]),.f select,.f textarea,.txt{width:130px;background:var(--bg);color:var(--tx);border:1px solid var(--ln);border-radius:5px;padding:4px 6px;font:inherit}
+.f textarea{width:100%;min-height:50px}
+.f.col{flex-direction:column;align-items:stretch}
+.f input[type=color]{width:44px;height:28px;border:1px solid var(--ln);background:none;padding:0}
+h3{font:700 13px Cinzel,Georgia,serif;margin:16px 0 6px;color:var(--ac);letter-spacing:.04em}
+.note{color:var(--mut);font-size:12px;margin:6px 0}
+.note b{color:var(--tx)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.card{border:1px solid var(--ln);border-radius:8px;padding:8px;margin:10px 0;background:#10202c}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:center}
+.var{border-top:1px dashed var(--ln);margin-top:8px;padding-top:6px}
+.zone{width:58px;height:58px;border:1px dashed var(--mut);border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:var(--mut);cursor:pointer;background:#000 center/contain no-repeat;position:relative}
+.zone span{background:#000b;padding:1px 3px;border-radius:3px}
+.th{width:34px;height:34px;object-fit:cover;border:1px solid var(--ln);border-radius:4px;background:#000}
+.lay{display:flex;gap:6px;align-items:center;padding:5px;border:1px solid var(--ln);border-radius:6px;margin:4px 0;cursor:pointer}
+.lay.on{border-color:var(--ac);background:#1c3142}
+.lay b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+#toasts{position:fixed;right:12px;top:60px;display:flex;flex-direction:column;gap:6px;z-index:50;max-width:min(420px,90vw)}
+.toast{background:#1c3142;border:1px solid var(--ln);border-left:4px solid var(--ac);padding:8px 12px;border-radius:6px;box-shadow:0 4px 18px #0008}
+.toast.bad{border-left-color:var(--bad)}.toast.ok{border-left-color:var(--ok)}
+#prog{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:60}
+#prog>div{background:var(--pn);border:1px solid var(--ac);border-radius:10px;padding:18px;width:min(420px,90vw)}
+#prog .bar{height:10px;background:var(--bg);border-radius:6px;overflow:hidden;margin:10px 0}
+#prog .bar i{display:block;height:100%;width:0;background:var(--ac)}
+dialog{background:var(--pn);color:var(--tx);border:1px solid var(--ac);border-radius:10px;padding:18px;max-width:min(440px,92vw)}
+dialog::backdrop{background:#000a}
+@media(max-width:1000px){main{display:flex;flex-direction:column;overflow:auto}#stage{order:-1;flex:none;height:52vh;min-height:300px;position:sticky;top:0;z-index:3}aside{flex:none;overflow:visible}#tabs{position:static}#left{border-right:0}#right{border-left:0;border-top:1px solid var(--ln)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Gerador de Mapas Hexagonais</h1>
+  <span id="saved"></span>
+  <button id="bNew">Novo</button>
+  <button id="bUndo" title="Ctrl+Z">Desfazer</button>
+  <button id="bRedo" title="Ctrl+Y">Refazer</button>
+  <button id="bSave" title="Ctrl+S">Salvar projeto</button>
+  <button id="bOpen">Abrir projeto</button>
+  <button id="bExp" class="pri">Exportar</button>
+</header>
+<main>
+  <aside id="left"><div id="tabs"></div><div id="panel"></div></aside>
+  <section id="stage">
+    <canvas id="cv"></canvas>
+    <div id="tb">
+      <button id="zFit">Ajustar</button><button id="zIn">+</button><button id="zOut">−</button>
+      <button class="tool" data-t="hand" title="Mover o mapa / selecionar">Mão</button>
+      <button class="tool" data-t="rect" title="Selecionar vários arrastando">Seleção</button>
+      <button class="tool" data-t="brush" title="Pintar hexágonos">Pincel</button>
+      <button class="tool" data-t="edge" title="Clique numa aresta de hexágono ou de borda para destacar com neon">Aresta</button>
+      <select id="brushSel" title="Categoria do pincel"></select>
+      <button id="zBack">Ver verso</button>
+    </div>
+  </section>
+  <aside id="right"><div id="sel"></div></aside>
+</main>
+<div id="toasts" role="status" aria-live="polite"></div>
+<div id="prog"><div><b id="progT">Gerando…</b><div class="bar"><i id="progB"></i></div><div class="note" id="progS"></div><button id="progC">Cancelar</button></div></div>
+<dialog id="dlgNew"><b>Começar um projeto novo</b><p class="note">O projeto atual será substituído. Use "Salvar projeto" antes se quiser guardá-lo. As imagens já importadas continuam disponíveis.</p>
+  <div class="row"><button data-tpl="pirata" class="pri">Modelo Pirata</button><button data-tpl="catan">Modelo 19 hexágonos</button><button data-tpl="vazio">Mapa vazio</button><button id="dlgX">Cancelar</button></div></dialog>
+<input type="file" id="fileIn" hidden>
+
+<script>
+"use strict";
+/* ================= utilidades ================= */
+const $=(s,e=document)=>e.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const D2R=Math.PI/180,SQ3=Math.sqrt(3);
+const mul=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u8,c=0){c=~c>>>0;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return(~c)>>>0}
+function toast(m,type='',ms=5500){const t=el('div','toast '+type,m);$('#toasts').append(t);setTimeout(()=>t.remove(),ms)}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.style.display='none';document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},120000)}
+const blobOf=(c,t,q)=>new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('Não foi possível codificar a imagem (memória insuficiente?)')),t,q));
+async function deflate(u8){const cs=new CompressionStream('deflate'),w=cs.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer())}
+async function inflateRaw(u8){const cs=new DecompressionStream('deflate-raw'),w=cs.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer())}
+addEventListener('error',e=>toast('Erro inesperado: '+esc(e.message),'bad'));
+addEventListener('unhandledrejection',e=>{if(!e.reason||e.reason==='cancel'){e.preventDefault();return}toast('Erro: '+esc(e.reason.message||e.reason),'bad')});
+
+/* ================= armazenamento local (IndexedDB) ================= */
+let _db=null,persistOK=true;
+function idb(){return _db||(_db=new Promise((res,rej)=>{try{const r=indexedDB.open('hexmap2',1);r.onupgradeneeded=()=>{r.result.createObjectStore('kv');r.result.createObjectStore('assets')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}))}
+async function idbDo(store,mode,fn){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction(store,mode);const r=fn(tx.objectStore(store));tx.oncomplete=()=>res(r&&r.result);tx.onerror=tx.onabort=()=>rej(tx.error)})}
+const kvSet=(k,v)=>idbDo('kv','readwrite',s=>s.put(v,k)),kvGet=k=>idbDo('kv','readonly',s=>s.get(k));
+const asSet=r=>idbDo('assets','readwrite',s=>s.put(r,r.id)),asDel=id=>idbDo('assets','readwrite',s=>s.delete(id)),asAll=()=>idbDo('assets','readonly',s=>s.getAll()),asClear=()=>idbDo('assets','readwrite',s=>s.clear());
+function setSaved(ok){persistOK=ok;$('#saved').textContent=ok?'Salvo neste navegador':'Autosave indisponível: use Salvar projeto';$('#saved').style.color=ok?'':'var(--bad)'}
+let saveT=0;
+function autosave(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await kvSet('state',JSON.stringify(S));setSaved(true)}catch(e){setSaved(false)}},600)}
+
+/* ================= imagens e fontes ================= */
+const IM={};      // id -> {id,name,type,blob,w,h,url,img,th,key,kind,family}
+let ORIG=false,NEEDPX=0;
+function getImg(id){
+  const m=IM[id];if(!m||!m.img)return null;
+  if(ORIG||Math.max(m.w,m.h)<=1100||NEEDPX>700)return m.img;
+  if(!m.th){const k=1024/Math.max(m.w,m.h),c=document.createElement('canvas');c.width=Math.max(1,Math.round(m.w*k));c.height=Math.max(1,Math.round(m.h*k));const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(m.img,0,0,c.width,c.height);m.th=c}
+  return m.th}
+async function loadImgEl(blob){const url=URL.createObjectURL(blob),img=new Image();img.src=url;try{await img.decode()}catch(e){URL.revokeObjectURL(url);throw e}return{img,url}}
+async function rasterSvg(file){
+  const txt=await file.text(),doc=new DOMParser().parseFromString(txt,'image/svg+xml'),svg=doc.documentElement;
+  if(!svg||svg.nodeName.toLowerCase()!=='svg')throw new Error('SVG inválido');
+  const vb=(svg.getAttribute('viewBox')||'').split(/[\s,]+/).map(Number);let w=parseFloat(svg.getAttribute('width')),h=parseFloat(svg.getAttribute('height'));
+  if(!(w>0&&h>0)){if(vb.length===4&&vb[2]>0&&vb[3]>0){w=vb[2];h=vb[3]}else{w=h=1024}}
+  const k=2048/Math.max(w,h);svg.setAttribute('width',Math.round(w*k));svg.setAttribute('height',Math.round(h*k));
+  if(!svg.getAttribute('viewBox'))svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  const b=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}),{img,url}=await loadImgEl(b);
+  const c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);return blobOf(c,'image/png')}
+async function registerImage(id,blob,name,key,persist=true){
+  if(IM[id]&&IM[id].url)URL.revokeObjectURL(IM[id].url);
+  const{img,url}=await loadImgEl(blob);if(!img.naturalWidth)throw new Error('imagem sem dimensões');
+  IM[id]={id,name,type:blob.type,blob,w:img.naturalWidth,h:img.naturalHeight,url,img,th:null,key};
+  if(persist)try{await asSet({id,name,type:blob.type,blob,w:img.naturalWidth,h:img.naturalHeight,key})}catch(e){setSaved(false)}
+  return id}
+async function addFile(file){
+  const name=file.name||'imagem',key=[name,file.size,file.lastModified].join('|');
+  for(const id in IM)if(IM[id].key===key&&!IM[id].kind)return id;
+  if(file.size>300*1024*1024)throw new Error(`"${name}" tem mais de 300 MB`);
+  let blob=file;const isSvg=/svg/i.test(file.type)||/\.svg$/i.test(name);
+  try{
+    if(isSvg)blob=await rasterSvg(file);
+    else if(!/^image\//.test(file.type)&&!/\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(name))throw new Error('tipo não suportado');
+    const{img,url}=await loadImgEl(blob);const mx=S.opt.maxImg,big=Math.max(img.naturalWidth,img.naturalHeight);
+    if(mx>0&&big>mx){
+      const k=mx/big,c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);
+      const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(img,0,0,c.width,c.height);
+      blob=await blobOf(c,/jpe?g/i.test(blob.type)?'image/jpeg':'image/png',.95)}
+    URL.revokeObjectURL(url);
+    return await registerImage(uid(),blob,name,key)
+  }catch(e){const heic=/hei[cf]/i.test(file.type+' '+name);throw new Error(heic?`"${esc(name)}" é HEIC/HEIF, formato que o navegador não lê. Converta para PNG ou JPG.`:`Não consegui abrir "${esc(name)}": o arquivo está corrompido ou o formato não é suportado (use PNG, JPG, WebP, GIF ou SVG).`)}}
+async function addFontFile(file){
+  const family=file.name.replace(/\.[^.]+$/,'').replace(/[^\w ]/g,'').trim()||'Fonte',buf=await file.arrayBuffer();
+  const ff=new FontFace(family,buf);await ff.load();document.fonts.add(ff);
+  const id=uid();IM[id]={id,name:file.name,type:file.type,blob:new Blob([buf]),kind:'font',family};
+  try{await asSet({id,name:file.name,type:file.type,blob:IM[id].blob,kind:'font',family})}catch(e){setSaved(false)}
+  S.fonts.push({id,family});return family}
+async function restoreAssets(recs){
+  let bad=0;await Promise.all(recs.map(async r=>{try{
+    if(r.kind==='font'){const ff=new FontFace(r.family,await r.blob.arrayBuffer());await ff.load();document.fonts.add(ff);IM[r.id]={...r}}
+    else await registerImage(r.id,r.blob,r.name,r.key,false)}catch(e){bad++}}));return bad}
+function dropAllAssets(){for(const id in IM){if(IM[id].url)URL.revokeObjectURL(IM[id].url);delete IM[id]}}
+const usedAssetIds=st=>{const s=new Set(),j=JSON.stringify(st);for(const id in IM)if(j.includes('"'+id+'"'))s.add(id);return s};
+
+/* ================= estado ================= */
+const PIRATA=[['Mar Aberto','#54b9d9',29],['Águas Amaldiçoadas','#7b22a8',13],['Ilha Tropical','#f9ea48',4],['Cemitério de Navios','#444e63',4],['Porto Pirata','#70451b',6],['Comércio','#e5473c',5],['Triângulo das Bermudas','#f2bd6b',2],['Pedra das Sereias','#ef6db8',2],['Altar da Transmutação','#9e1f63',3],['Refúgio do Mar Calmo','#d9d9d9',3]];
+const newVar=(qty=1)=>({img:null,ov:null,qty,z:1,os:.7,rr:false});
+const newCat=(name='Nova categoria',color='#4fb39b',qty=1)=>({id:uid(),name,color,qty,sep:false,fix:false,pos:'any',vars:[newVar(qty)]});
+function defState(){return{v:2,shape:'hex',layers:4,cols:8,rn:6,rowsStr:'6,7,8,9,10,9,8,7,6',flat:false,size:34,gap:0,rad:0,ow:3,oc:'#0a121a',ostyle:'solid',
+  showNums:false,numColor:'#ffffff',showLabels:false,labelSize:.3,labelColor:'#ffffff',emptyColor:'#26394a',showBack:false,back:{color:'#1d3a52',img:null},margin:40,
+  bg:{color:'#1a2b38',c2:'#0d1821',grad:false,img:null,mode:'cover',z:1,x:0,y:0,op:1,blur:0},
+  bd:{on:true,fit:'hex',fillOp:1,textTop:true,tg:{},ts:[],tn:[],ring:{img:null,z:1,x:0,y:0,op:1},thick:70,pad:0,color:'#0a121a',lc:'#ffffff',lw:3,cut:false,fs:22,tc:'#ffffff',font:'Cinzel',segs:[],segBg:[],sd:[],imgOri:'out',puz:false,puzShape:'round',puzSize:.5,puzFlip:false,numOn:true,numStyle:'123',numSize:.2,numOp:.75},
+  cats:[],cells:[],lay:[],bgs:[],hov:[],hl:[],hlOn:true,hlTop:true,hlDef:{side:'in',col:'#39ff14',gc:'#39ff14',glow:14,glowA:.8,core:.45,cc:'#ffffff',w:5,st:'solid',dl:1,cap:'round',op:1,off:0,inset:0,join:true},ovClip:false,bgClip:false,shufRot:false,seed:2026,surplus:'biggest',fonts:[],opt:{maxImg:4096},
+  exp:{wcm:60,dpi:300,transp:false,fmt:'png',pdfMode:'one',paper:'A4',pw:210,ph:297,pm:10,ov:10,marks:true,lossless:false,q:.95,hexPx:800,hexMode:'uniq',pc:{dia:4,mode:'tip',margin:8,gap:3,dpi:300,hex:true,bord:true,guide:true,nums:true,lossless:false}}}}
+function deepMerge(a,b){if(!b||typeof b!=='object')return a;for(const k in b){if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])&&a[k]&&typeof a[k]==='object'&&!Array.isArray(a[k]))deepMerge(a[k],b[k]);else a[k]=b[k]}return a}
+function tpl(n){
+  const d=defState();
+  if(n==='pirata'){d.shape='rows';d.cats=PIRATA.map(([a,c,q])=>newCat(a,c,q));d.bd.segs=['Farol, Passagem A, Estaleiro','Comércio, Pedras das Sereias','Cemitério, Ossuário','Taverna, Passagem B, Capela','Peixaria, Pesqueiro','Cemitério, Ossuário']}
+  else if(n==='catan'){d.shape='hex';d.layers=3;d.bg.color='#0f4c75';d.bd.color='#1f6f9f';d.bd.thick=46;d.bd.lw=0;
+    d.cats=[['Floresta','#2f7d3a',4],['Pasto','#9bd05a',4],['Campo','#f0c93b',4],['Colina','#c4622d',3],['Montanha','#7d8590',3],['Deserto','#e8d9a0',1]].map(([a,c,q])=>newCat(a,c,q))}
+  return d}
+let userMoved=false,lastSig='';
+let S=defState(),view={z:1,x:0,y:0},selSet=new Set(),selPrim=-1,selLayer=null,selSide=-1,selHl=new Set(),selTx=null,hoverEdge=null,hovOv=null,tool='hand',brush=null,tab='Mapa',msg='',rectSel=null;
+let hist=[],hi=-1;
+const catOf=id=>S.cats.find(c=>c.id===id);
+const MAXCELLS=5000;
+
+/* ================= geometria ================= */
+function rowLens(){
+  let a;
+  if(S.shape==='hex'){const L=clamp(S.layers|0,1,30);a=[];for(let i=0;i<2*L-1;i++)a.push(2*L-1-Math.abs(L-1-i))}
+  else if(S.shape==='rect'){a=Array.from({length:clamp(S.rn|0,1,70)},()=>clamp(S.cols|0,1,70))}
+  else{a=String(S.rowsStr).split(/[,\s;]+/).map(Number).filter(n=>n>0).map(n=>Math.min(120,Math.floor(n)));if(!a.length)a=[1]}
+  let t=0;const out=[];for(const n of a){if(t+n>MAXCELLS)break;out.push(n);t+=n}return out.length?out:[1]}
+function layout(){
+  const s=S.size,w=SQ3*s,ns=rowLens(),out=[];let sh=0,f=1;const H=(ns.length-1)*1.5*s;
+  ns.forEach((n,r)=>{if(r>0&&(n-ns[r-1])%2===0){sh+=f*w/2;f=-f}
+    for(let i=0;i<n;i++){const x=(i-(n-1)/2)*w+sh,y=r*1.5*s-H/2;out.push(S.flat?{x:y,y:x}:{x,y})}});
+  return out}
+function hull(P){
+  const pts=P.map(p=>[p.x,p.y]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);if(pts.length<3)return pts;
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[];for(const p of pts){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=1e-3)lo.pop();lo.push(p)}
+  const up=[];for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],p)<=1e-3)up.pop();up.push(p)}
+  up.pop();lo.pop();return lo.concat(up)}
+function off(P,ds){
+  const n=P.length,N=P.map((p,i)=>{const q=P[(i+1)%n],ex=q[0]-p[0],ey=q[1]-p[1],l=Math.hypot(ex,ey)||1;return[ey/l,-ex/l]});
+  return P.map((p,k)=>{const a=(k+n-1)%n,[a1,b1]=N[a],[a2,b2]=N[k],c1=a1*p[0]+b1*p[1]+ds[a],c2=a2*p[0]+b2*p[1]+ds[k],det=a1*b2-a2*b1;
+    if(Math.abs(det)<1e-9)return[p[0]+a2*ds[k],p[1]+b2*ds[k]];return[(c1*b2-c2*b1)/det,(a1*c2-a2*c1)/det]})}
+function distSeg(m,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],t=clamp(((m[0]-a[0])*dx+(m[1]-a[1])*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(m[0]-a[0]-t*dx,m[1]-a[1]-t*dy)}
+/* contorno externo real do conjunto de hexágonos (sentido horário na tela) */
+function contourEdges(L){
+  const s=S.size,d=SQ3*s,hs=d/2,flat=S.flat,bk=new Map();
+  L.forEach(p=>{const key=Math.floor(p.x/hs)+','+Math.floor(p.y/hs);let a=bk.get(key);if(!a){a=[];bk.set(key,a)}a.push(p)});
+  const has=(x,y)=>{const kx=Math.floor(x/hs),ky=Math.floor(y/hs);for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const a=bk.get((kx+i)+','+(ky+j));if(a)for(const p of a)if(Math.hypot(p.x-x,p.y-y)<s*.05)return true}return false};
+  const kk=p=>(Math.round(p[0]*1000)||0)+','+(Math.round(p[1]*1000)||0),edges=[];
+  L.forEach((p,pi)=>{const cs=[];for(let k=0;k<6;k++){const a=D2R*(60*k+(flat?0:30));cs.push([p.x+s*Math.cos(a),p.y+s*Math.sin(a)])}
+    for(let k=0;k<6;k++){const na=D2R*(60*k+30+(flat?0:30));if(!has(p.x+d*Math.cos(na),p.y+d*Math.sin(na)))edges.push({a:cs[k],b:cs[(k+1)%6],c:pi,k})}});
+  if(edges.length<6)return null;
+  const from=new Map();edges.forEach((e,i)=>{e.ka=kk(e.a);e.kb=kk(e.b);let a=from.get(e.ka);if(!a){a=[];from.set(e.ka,a)}a.push(i)});
+  const used=new Array(edges.length).fill(false);let best=null,bestA=0;
+  for(let i=0;i<edges.length;i++){if(used[i])continue;const loop=[];let cur=i;
+    while(cur!=null&&!used[cur]){used[cur]=true;loop.push(cur);cur=(from.get(edges[cur].kb)||[]).find(j=>!used[j])}
+    if(edges[loop[loop.length-1]].kb!==edges[loop[0]].ka)continue;
+    let ar=0;loop.forEach(j=>{const e=edges[j];ar+=e.a[0]*e.b[1]-e.b[0]*e.a[1]});
+    if(ar>bestA){bestA=ar;best=loop.map(j=>edges[j])}}
+  return best}
+/* divide o contorno em uma linha poligonal por lado da borda; null se o formato for irregular demais */
+function contourSides(L,P,c){
+  const n=P.length,s=S.size,E=contourEdges(L);if(!E||E.length<n)return null;const m=E.length;
+  const side=E.map(e=>{const mp=[(e.a[0]+e.b[0])/2,(e.a[1]+e.b[1])/2],ds=P.map((p,i)=>distSeg(mp,p,P[(i+1)%n])),mn=Math.min(...ds),cand=[];
+    ds.forEach((d,i)=>{if(d<=mn+s*1e-3)cand.push(i)});if(cand.length===1)return cand[0];
+    for(const a of cand)if(cand.includes((a+1)%n))return a;return cand[0]});
+  let j0=-1;for(let k=0;k<m;k++)if(side[k]===0&&side[(k+m-1)%m]!==0){j0=k;break}
+  if(j0<0)return null;
+  const ed=[],sd=[];for(let k=0;k<m;k++){ed.push(E[(j0+k)%m]);sd.push(side[(j0+k)%m])}
+  const starts=[];let prev=-1,expect=0;
+  for(let k=0;k<m;k++){if(sd[k]!==prev){if(sd[k]!==expect)return null;starts.push(k);expect++;prev=sd[k]}}
+  if(starts.length!==n)return null;
+  const pts=ed.map(e=>e.a),op=off(pts,pts.map(()=>c)),polys=[];
+  for(let i=0;i<n;i++){const a=starts[i],b=i<n-1?starts[i+1]:m,poly=[];for(let k=a;k<=b;k++)poly.push(op[k%m]);polys.push(poly)}
+  const map=new Map();ed.forEach((e,k)=>map.set(e.c*6+e.k,sd[k]));return{polys,map}}
+/* curva do encaixe (macho/fêmea) entre duas peças; J = ponto interno, O = ponto externo */
+function puzCurve(J,O,t,B,cf=.5,sc=1){
+  const dx=O[0]-J[0],dy=O[1]-J[1],L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L;
+  let nx=-uy,ny=ux;if(nx*t[0]+ny*t[1]<0){nx=-nx;ny=-ny}if(B.puzFlip){nx=-nx;ny=-ny}
+  const k=clamp(B.puzSize,.2,.9)*sc,P=(u,v)=>[J[0]+ux*u+nx*v,J[1]+uy*u+ny*v],pts=[P(0,0)],c=L*cf;
+  if(B.puzShape==='dove'){const nw=.11*L*k*2,hw=.26*L*k*2,ph=.46*L*k*2;pts.push(P(c-nw,0),P(c-hw,ph),P(c+hw,ph),P(c+nw,0))}
+  else{const R=.42*k*L,nw=.45*R,nl=.35*R,q=Math.sqrt(R*R-nw*nw),hc=nl+q,phi=Math.atan2(q,nw),a0=Math.PI+phi,a1=-phi,N=28;
+    pts.push(P(c-nw,0),P(c-nw,nl));for(let i=0;i<=N;i++){const a=a0+(a1-a0)*i/N;pts.push(P(c+R*Math.cos(a),hc+R*Math.sin(a)))}pts.push(P(c+nw,nl),P(c+nw,0))}
+  pts.push(P(L,0));return pts}
+function inPoly(pt,poly){let ins=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>pt[1])!==(b[1]>pt[1])&&pt[0]<(b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1])+a[0])ins=!ins}return ins}
+/* escolhe posição e tamanho do encaixe para caber inteiro dentro da peça que o recebe, com folga das bordas */
+function fitPuz(dv,d,sides,out,B){
+  const n=sides.length,r=B.puzFlip?(d+n-1)%n:d,pts=sides[r].pts,poly=[...pts,out[(r+1)%n],out[r]],skip=B.puzFlip?pts.length-1:poly.length-1,t=sides[d].t,mg=Math.max(2,dv.L*.04)+B.lw/2;
+  let best=null,bv=1e9;
+  for(const sc of [1,.85,.7,.58,.48,.4,.32,.25])for(const cf of [.5,.44,.38,.32,.27,.22]){
+    const cu=puzCurve(dv.J,dv.O,t,B,cf,sc);let bad=0;
+    for(let k=1;k<cu.length-1;k++){const q=cu[k];if(distSeg(q,dv.J,dv.O)<1e-6)continue;
+      if(!inPoly(q,poly)){bad+=3;continue}
+      for(let e=0;e<poly.length;e++){if(e===skip)continue;if(distSeg(q,poly[e],poly[(e+1)%poly.length])<mg){bad++;break}}}
+    if(bad===0)return cu;if(bad<bv){bv=bad;best=cu}}
+  return best}
+let _gk='',_gv=null;
+function geom(){
+  const k=[S.shape,S.layers,S.cols,S.rn,S.rowsStr,S.flat,S.size,S.gap,S.margin,S.bd.on,S.bd.fit,S.bd.thick,S.bd.pad,S.bd.puz,S.bd.puzShape,S.bd.puzSize,S.bd.puzFlip,S.bd.lw].join('|');
+  if(k===_gk&&_gv)return _gv;_gv=computeGeom();_gk=k;return _gv}
+function computeGeom(){
+  const L=layout(),s=S.size,B=S.bd;let bd=null;const hp=B.on?hull(L):[];
+  if(hp.length>=3){
+    let P=hp,a=0;P.forEach((p,i)=>{const q=P[(i+1)%P.length];a+=p[0]*q[1]-q[0]*p[1]});if(a<0)P=P.slice().reverse();
+    let st=0,best=1e18;P.forEach((p,i)=>{const q=P[(i+1)%P.length],m=(p[1]+q[1])/2+(p[0]+q[0])*1e-6;if(m<best){best=m;st=i}});
+    P=P.slice(st).concat(P.slice(0,st));const n=P.length;
+    const hk=P.map((p,i)=>{const q=P[(i+1)%n],ex=q[0]-p[0],ey=q[1]-p[1],l=Math.hypot(ex,ey)||1,nx=ey/l,ny=-ex/l;let h=0;
+      for(let k=0;k<6;k++){const an=D2R*(60*k+(S.flat?0:30));h=Math.max(h,s*(Math.cos(an)*nx+Math.sin(an)*ny))}return h});
+    const c0=B.pad-(B.fit==='hex'?S.gap/2:0),innS=off(P,hk.map(h=>h+c0)),out=off(P,hk.map(h=>h+c0+B.thick));
+    const cs=contourSides(L,P,c0),polys=B.fit==='hex'&&cs?cs.polys:null;
+    const sides=P.map((p,i)=>{const q=P[(i+1)%n],ex=q[0]-p[0],ey=q[1]-p[1],l=Math.hypot(ex,ey)||1,t=[ex/l,ey/l];
+      return{pts:polys?polys[i]:[innS[i],innS[(i+1)%n]],t,ang:Math.atan2(t[1],t[0])}});
+    const div=sides.map((sd,d)=>{const J=sd.pts[0],O=out[d],L2=Math.hypot(O[0]-J[0],O[1]-J[1])||1;return{J,O,L:L2,curve:[J,O]}});
+    if(B.puz)div.forEach((dv,d)=>{dv.curve=fitPuz(dv,d,sides,out,B)});
+    bd={sides,div,innS,out,inn:sides.map(x=>x.pts[0]),fitOK:!!polys,edgeSide:cs?cs.map:null,pf:[]}}
+  const xs=[],ys=[];
+  if(bd)bd.out.forEach(p=>{xs.push(p[0]);ys.push(p[1])});else L.forEach(p=>{xs.push(p.x-s,p.x+s);ys.push(p.y-s,p.y+s)});
+  let bp;if(bd)bp=bd.out;else{const E=contourEdges(L);bp=E?E.map(e=>e.a):[[Math.min(...xs),Math.min(...ys)],[Math.max(...xs),Math.min(...ys)],[Math.max(...xs),Math.max(...ys)],[Math.min(...xs),Math.max(...ys)]]}
+  const m=S.margin,x0=Math.min(...xs)-m,y0=Math.min(...ys)-m;
+  return{L,bd,boardPoly:bp,b:{x:x0,y:y0,w:Math.max(...xs)+m-x0,h:Math.max(...ys)+m-y0}}}
+function ensureCells(){const n=layout().length;while(S.cells.length<n)S.cells.push({c:null,v:-1,r:0,l:false,o:null})}
+
+/* ================= desenho ================= */
+function hexPath(c,x,y,r,flat,rad){
+  const P=[];for(let k=0;k<6;k++){const a=D2R*(60*k+(flat?0:30));P.push([x+r*Math.cos(a),y+r*Math.sin(a)])}
+  c.beginPath();
+  if(!rad){P.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();return}
+  const rr=clamp(rad,0,1)*.8*r,m=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2],s=m(P[5],P[0]);c.moveTo(s[0],s[1]);
+  for(let k=0;k<6;k++){const e=m(P[k],P[(k+1)%6]);c.arcTo(P[k][0],P[k][1],e[0],e[1],rr)}c.closePath()}
+function putImg(c,im,x,y,size,rot,mode){
+  const w=im.width||im.naturalWidth,h=im.height||im.naturalHeight,k=mode==='cover'?Math.max(size/w,size/h):Math.min(size/w,size/h);
+  c.save();c.translate(x,y);c.rotate(rot*Math.PI/3);c.drawImage(im,-w*k/2,-h*k/2,w*k,h*k);c.restore()}
+function fitText(c,t,maxW,fs,font){c.font=`700 ${fs}px "${font}",Georgia,serif`;const w=c.measureText(t).width;if(w>maxW){fs*=maxW/w;c.font=`700 ${fs}px "${font}",Georgia,serif`}return fs}
+let LBL={k:'',fs:0};
+function labelSize(c,r){
+  const k=[r.toFixed(2),S.labelSize,S.bd.font,document.fonts?document.fonts.size:0,S.cats.map(x=>x.name).join('\u0001')].join('|');
+  if(LBL.k!==k){const fs=r*S.labelSize*2;let f=fs;c.font=`700 ${fs}px "${S.bd.font}",Georgia,serif`;S.cats.forEach(x=>{if(x.qty>0){const w=c.measureText(x.name).width;if(w>r*1.5)f=Math.min(f,fs*r*1.5/w)}});LBL={k,fs:f}}
+  return LBL.fs}
+function drawCell(c,p,k,i,ci){
+  if(ci===undefined)ci=i;
+  const r=S.size-S.gap/SQ3,cat=catOf(k.c);
+  c.save();hexPath(c,p.x,p.y,r,S.flat,S.rad);c.fillStyle=S.showBack?S.back.color:(cat?cat.color:S.emptyColor);c.fill();c.clip();
+  if(S.showBack){const im=getImg(S.back.img);if(im)putImg(c,im,p.x,p.y,2*r,0,'cover')}
+  else{
+    if(k.o){const im=getImg(k.o);if(im)putImg(c,im,p.x,p.y,2*r,k.r||0,'cover')}
+    else if(cat&&cat.vars[k.v]){const v=cat.vars[k.v],im=getImg(v.img),ov=getImg(v.ov);
+      if(im)putImg(c,im,p.x,p.y,2*r*(v.z||1),k.r||0,'cover');if(ov)putImg(c,ov,p.x,p.y,2*r*(v.os||.7),k.r||0,'contain')}
+    (S.hov||[]).forEach(h=>{if(h.vis!==false&&h.clip!==false&&ovApplies(h,k,ci))drawOv(c,p,k,h)});
+    if(S.showLabels&&cat){c.save();c.fillStyle=S.labelColor;c.textAlign='center';c.textBaseline='middle';c.shadowColor='#000c';c.shadowBlur=r*.08;
+      c.font=`700 ${labelSize(c,r)}px "${S.bd.font}",Georgia,serif`;c.fillText(cat.name,p.x,p.y+(S.showNums?r*.14:0));c.restore()}}
+  c.restore();
+  if(S.ow>0){c.save();hexPath(c,p.x,p.y,r,S.flat,S.rad);c.lineWidth=S.ow;c.strokeStyle=S.oc;c.lineJoin='round';
+    if(S.ostyle==='dashed')c.setLineDash([S.ow*3,S.ow*2]);if(S.ostyle==='dotted'){c.setLineDash([.1,S.ow*2]);c.lineCap='round'}c.stroke();c.restore()}
+  if(!S.showBack)(S.hov||[]).forEach(h=>{if(h.vis!==false&&h.clip===false&&ovApplies(h,k,ci))drawOv(c,p,k,h)});
+  if(S.showNums&&!S.showBack&&i>=0){c.save();c.fillStyle=S.numColor;const lab=S.showLabels&&cat;c.font=`700 ${S.size*(lab?.3:.42)}px "${S.bd.font}",Georgia,serif`;c.textAlign='center';c.textBaseline='middle';c.shadowColor='#000';c.shadowBlur=3;c.fillText(i+1,p.x,p.y-(lab?r*.62:0));c.restore()}}
+function piecePts(bd,i){
+  const n=bd.sides.length,sd=bd.sides[i],dE=bd.div[(i+1)%n].curve,dS=bd.div[i].curve,o=[];
+  sd.pts.forEach(p=>o.push(p));for(let k=1;k<dE.length;k++)o.push(dE[k]);o.push(bd.out[i]);for(let k=dS.length-2;k>=0;k--)o.push(dS[k]);return o}
+function pframe(bd,i){
+  if(bd.pf[i])return bd.pf[i];const sd=bd.sides[i],t=sd.t,iw=[-t[1],t[0]],pts=piecePts(bd,i);let a=1e18,b=-1e18,c=1e18,d=-1e18;
+  pts.forEach(p=>{const u=p[0]*t[0]+p[1]*t[1],v=p[0]*iw[0]+p[1]*iw[1];a=Math.min(a,u);b=Math.max(b,u);c=Math.min(c,v);d=Math.max(d,v)});
+  const cu=(a+b)/2,cv=(c+d)/2;return bd.pf[i]={t,ang:sd.ang,minU:a,minV:c,bw:b-a,bh:d-c,cx:cu*t[0]+cv*iw[0],cy:cu*t[1]+cv*iw[1]}}
+function pathPts(c,pts){c.beginPath();pts.forEach((p,k)=>k?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath()}
+function numLabel(d){return S.bd.numStyle==='abc'?String.fromCharCode(65+d%26):String(d+1)}
+function ringBox(bd){if(bd.rb)return bd.rb;let a=1e18,b=-1e18,c=1e18,d=-1e18;bd.out.forEach(p=>{a=Math.min(a,p[0]);b=Math.max(b,p[0]);c=Math.min(c,p[1]);d=Math.max(d,p[1])});return bd.rb={w:b-a,h:d-c,cx:(a+b)/2,cy:(c+d)/2}}
+function pieceFill(c,g,i,o={}){
+  const bd=g.bd,B=S.bd,pts=piecePts(bd,i),sd=B.sd[i]||{},fr=pframe(bd,i),col=B.segBg[i]||B.color;
+  c.save();pathPts(c,pts);
+  if(o.base){if(B.fillOp>0){c.globalAlpha=B.fillOp;c.fillStyle=col;c.fill();c.globalAlpha=1}}
+  else if(B.segBg[i]){c.fillStyle=B.segBg[i];c.fill()}
+  const rim=getImg(B.ring.img),im=getImg(sd.img),ov=getImg(sd.ov);
+  if(rim||im||ov){
+    c.clip();
+    if(rim){const rb=ringBox(bd),iw=rim.width||rim.naturalWidth,ih=rim.height||rim.naturalHeight,k=Math.max(rb.w/iw,rb.h/ih)*(B.ring.z||1);
+      c.globalAlpha=B.ring.op;c.drawImage(rim,rb.cx-iw*k/2+(B.ring.x||0),rb.cy-ih*k/2+(B.ring.y||0),iw*k,ih*k);c.globalAlpha=1}
+    if(im||ov){
+      const ori=(o.exp&&B.imgOri==='up')?'out':B.imgOri;
+      c.translate(fr.cx,fr.cy);c.rotate(ori==='up'?0:fr.ang+(ori==='in'?Math.PI:0));
+      const W=ori==='up'?Math.hypot(fr.bw,fr.bh):fr.bw,H=ori==='up'?Math.hypot(fr.bw,fr.bh):fr.bh;
+      if(im){const iw=im.width||im.naturalWidth,ih=im.height||im.naturalHeight,k=Math.max(W/iw,H/ih)*(sd.z||1);c.drawImage(im,-iw*k/2+(sd.x||0),-ih*k/2+(sd.y||0),iw*k,ih*k)}
+      if(ov){const iw=ov.width||ov.naturalWidth,ih=ov.height||ov.naturalHeight,z=fr.bh*(sd.os||.8),k=Math.min(z/iw,z/ih);c.drawImage(ov,-iw*k/2+(sd.x||0),-ih*k/2+(sd.y||0),iw*k,ih*k)}}}
+  c.restore();
+  if(o.cut){c.save();pathPts(c,pts);c.strokeStyle=B.lc;c.lineWidth=B.lw>0?B.lw:2;c.lineJoin='round';c.stroke();c.restore()}}
+function numSpot(bd,d,sg,sd,fsN){
+  const dv=bd.div[d],ux=(dv.J[0]-dv.O[0])/dv.L,uy=(dv.J[1]-dv.O[1])/dv.L,e=[sg*sd.t[0],sg*sd.t[1]],
+    cosA=e[0]*ux+e[1]*uy,sinA=Math.abs(e[0]*uy-e[1]*ux)||.001,h=fsN*.85,s=clamp((fsN*.6+h*cosA)/sinA,fsN*1.2,fsN*4),inw=[-sd.t[1],sd.t[0]];
+  return{x:dv.O[0]+e[0]*s+inw[0]*h,y:dv.O[1]+e[1]*s+inw[1]*h,s}}
+/* ===== texto das bordas: estilo e posição por texto ===== */
+const TX_DEF={bold:true,italic:false,caps:'none',ls:0,sx:1,op:1,sc:'#000000',sw:0,sh:false,shc:'#000000',shx:2,shy:2,sho:.6,glow:0,glc:'',glA:.7,dir:'auto',rot:0,bend:0,box:false,bf:'#000000',bfo:.6,bc:'#ffffff',bw:2,bp:.35,br:.3,dx:0,dy:0};
+const DIRS=[['auto','Automático (segue a borda e fica legível)'],['fixed','Segue a borda (sem virar)'],['flip','Segue a borda, invertido'],['up','Sempre em pé (horizontal)'],['out','Para fora (lê de dentro para fora)'],['in','Para dentro (lê de fora para dentro)'],['stack','Letras empilhadas']];
+const TX_PRESETS=[['Contorno preto',{sw:3,sc:'#000000'}],['Sombra',{sh:true,shc:'#000000',shx:2,shy:3,sho:.7}],['Neon verde',{col:'#eaffea',glow:10,glc:'#39ff14',glA:.9}],['Placa escura',{box:true,bf:'#000000',bfo:.65,bc:'#d9a441',bw:2,bp:.35,br:.3}],['Relevo dourado',{col:'#ffd76a',sw:2,sc:'#4a2c00',sh:true,shc:'#000000',shx:1,shy:2,sho:.7}],['Arco',{bend:90}]];
+function txGet(i,k){const B=S.bd;return k<0?(B.ts&&B.ts[i])||null:(B.tn&&B.tn[i]&&B.tn[i][k])||null}
+function txTarget(i,k){const B=S.bd;if(k<0){B.ts=B.ts||[];return B.ts[i]||(B.ts[i]={})}B.tn=B.tn||[];const a=B.tn[i]||(B.tn[i]=[]);return a[k]||(a[k]={})}
+function txRes(i,k){const B=S.bd;return Object.assign({},TX_DEF,B.tg||{},(B.ts&&B.ts[i])||{},k>=0?txGet(i,k)||{}:{})}
+function applyCaps(t,m){return m==='upper'?t.toUpperCase():m==='lower'?t.toLowerCase():m==='title'?t.toLowerCase().replace(/(^|\s)(\S)/g,(a,b,c)=>b+c.toUpperCase()):t}
+function rrect(c,x,y,w,h,r){r=Math.max(0,Math.min(r,w/2,h/2));c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+/* posição de cada letra quando o texto é curvo, com espaçamento ou empilhado; caso simples = texto inteiro (igual ao de antes) */
+function layoutText(text,fs,fontStr,st){
+  MC.font=fontStr;const ls=st.ls||0,chars=[...text];
+  if(st.dir==='stack'){const lh=fs*1.05+ls,ws=chars.map(ch=>MC.measureText(ch).width);return{whole:false,glyphs:chars.map((ch,k)=>({ch,x:0,y:(k-(chars.length-1)/2)*lh,a:0})),w:Math.max(10,...ws),h:Math.max(fs,chars.length*lh),ox:0,oy:0}}
+  if(!ls&&!st.bend)return{whole:true,w:MC.measureText(text).width,h:fs*1.25,ox:0,oy:0};
+  const ws=chars.map(ch=>MC.measureText(ch).width),W=ws.reduce((a,b)=>a+b,0)+ls*Math.max(0,chars.length-1),bend=(st.bend||0)*D2R,R=bend?W/bend:0,gl=[];let x=-W/2;
+  chars.forEach((ch,k)=>{const cx0=x+ws[k]/2;x+=ws[k]+ls;if(!bend)gl.push({ch,x:cx0,y:0,a:0});else{const ph=cx0/R;gl.push({ch,x:R*Math.sin(ph),y:R*(1-Math.cos(ph)),a:ph})}});
+  if(!bend)return{whole:false,glyphs:gl,w:Math.max(W,fs*.5),h:fs*1.25,ox:0,oy:0};
+  let a=1e9,b=-1e9,c2=1e9,d=-1e9;gl.forEach(q=>{a=Math.min(a,q.x-fs*.5);b=Math.max(b,q.x+fs*.5);c2=Math.min(c2,q.y-fs*.6);d=Math.max(d,q.y+fs*.6)});
+  return{whole:false,glyphs:gl,w:b-a,h:d-c2,ox:(a+b)/2,oy:(c2+d)/2}}
+/* todos os textos de um lado da borda, já com posição, ângulo e estilo finais */
+function textItems(g,i,o={}){
+  const bd=g.bd,B=S.bd,n=bd.sides.length,j=(i+1)%n,sd=bd.sides[i],fsN=B.thick*B.numSize,names=(B.segs[i]||'').split(',').map(t=>t.trim()).filter(Boolean);
+  if(!names.length)return[];
+  const sA=numSpot(bd,i,1,sd,fsN),sZ=numSpot(bd,j,-1,sd,fsN);
+  const A=[(bd.innS[i][0]+bd.out[i][0])/2,(bd.innS[i][1]+bd.out[i][1])/2],Z=[(bd.innS[j][0]+bd.out[j][0])/2,(bd.innS[j][1]+bd.out[j][1])/2];
+  const len=Math.hypot(Z[0]-A[0],Z[1]-A[1])||1,clash=B.numOn&&(B.thick/2-B.fs/2<fsN*1.4);
+  let mA=clash?Math.min(.4,(sA.s+fsN*.8)/len):0,mZ=clash?Math.min(.4,(sZ.s+fsN*.8)/len):0;
+  /* o texto não pode invadir o encaixe: reserva o espaço da parte côncava (fêmea) desta peça */
+  const ext=(d,isStart)=>{if(!B.puz||!((!B.puzFlip&&isStart)||(B.puzFlip&&!isStart)))return 0;const dv=bd.div[d];let mx=0;
+    dv.curve.forEach(q=>{const v=isStart?(q[0]-dv.O[0])*sd.t[0]+(q[1]-dv.O[1])*sd.t[1]:(dv.O[0]-q[0])*sd.t[0]+(dv.O[1]-q[1])*sd.t[1];mx=Math.max(mx,v)});return mx};
+  const eS=ext(i,true),eE=ext(j,false);
+  if(eS>0){const tA=(A[0]-bd.out[i][0])*sd.t[0]+(A[1]-bd.out[i][1])*sd.t[1];mA=Math.max(mA,clamp((eS+B.fs*.7-tA)/len,0,.45))}
+  if(eE>0){const tZ=(bd.out[j][0]-Z[0])*sd.t[0]+(bd.out[j][1]-Z[1])*sd.t[1];mZ=Math.max(mZ,clamp((eE+B.fs*.7-tZ)/len,0,.45))}
+  const ax=A[0]+(Z[0]-A[0])*mA,ay=A[1]+(Z[1]-A[1])*mA,bx=Z[0]-(Z[0]-A[0])*mZ,by=Z[1]-(Z[1]-A[1])*mZ;
+  let ang=sd.ang,fl=false;if(!o.noflip&&(ang>Math.PI/2||ang<-Math.PI/2)){ang+=Math.PI;fl=true}
+  const mw=Math.hypot(bx-ax,by-ay)/names.length*.9,out=[sd.t[1],-sd.t[0]];let fsA=B.fs;
+  MC.font=`700 ${fsA}px "${B.font}",Georgia,serif`;names.forEach(t=>{const w=MC.measureText(t).width;if(w>mw)fsA=Math.min(fsA,B.fs*mw/w)});
+  return names.map((t,k)=>{
+    const st=txRes(i,k),kk=fl?names.length-1-k:k,f=(kk+.5)/names.length,fs=st.fs!=null?st.fs:fsA,font=st.font||B.font,col=st.col||B.tc,text=applyCaps(t,st.caps);
+    let a;switch(st.dir){case'fixed':a=sd.ang;break;case'flip':a=ang+Math.PI;break;case'up':a=0;break;case'out':a=Math.atan2(out[1],out[0]);break;case'in':a=Math.atan2(out[1],out[0])+Math.PI;break;case'stack':a=0;break;default:a=ang}
+    a+=(st.rot||0)*D2R;
+    const x=ax+(bx-ax)*f+sd.t[0]*(st.dx||0)+out[0]*(st.dy||0),y=ay+(by-ay)*f+sd.t[1]*(st.dx||0)+out[1]*(st.dy||0),
+      fontStr=`${st.italic?'italic ':''}${st.bold?700:400} ${fs}px "${font}",Georgia,serif`;
+    return{i,k,text,x,y,rot:a,fs,font:fontStr,col,st,lay:layoutText(text,fs,fontStr,st)}})}
+function paintItem(c,it){
+  const st=it.st,L=it.lay;c.save();c.translate(it.x,it.y);c.rotate(it.rot);if(st.sx!==1)c.scale(st.sx,1);
+  c.font=it.font;c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';
+  const run=m=>{if(L.whole){m==='s'?c.strokeText(it.text,0,0):c.fillText(it.text,0,0)}else L.glyphs.forEach(q=>{c.save();c.translate(q.x,q.y);c.rotate(q.a);m==='s'?c.strokeText(q.ch,0,0):c.fillText(q.ch,0,0);c.restore()})};
+  if(st.box){const pw=L.w+it.fs*st.bp*2,ph=L.h+it.fs*st.bp*2;c.globalAlpha=st.op*st.bfo;c.fillStyle=st.bf;rrect(c,L.ox-pw/2,L.oy-ph/2,pw,ph,Math.min(pw,ph)*st.br/2);c.fill();
+    if(st.bw>0){c.globalAlpha=st.op;c.strokeStyle=st.bc;c.lineWidth=st.bw;c.stroke()}}
+  if(st.glow>0){const N=6,gc=st.glc||it.col;for(let q=N;q>=1;q--){const t=q/N;c.globalAlpha=st.op*st.glA*Math.pow(1-t,1.6)*.35;c.strokeStyle=gc;c.lineWidth=st.glow*2*t+st.sw*2;run('s')}}
+  c.globalAlpha=st.op;
+  if(st.sh){c.save();c.translate(st.shx,st.shy);c.globalAlpha=st.op*st.sho;c.fillStyle=st.shc;run('f');c.restore()}
+  if(st.sw>0){c.strokeStyle=st.sc;c.lineWidth=st.sw*2;run('s')}
+  c.fillStyle=it.col;run('f');c.restore()}
+function hitText(w){
+  const g=geom();if(!g.bd)return null;let best=null,bd=1e18;
+  for(let i=0;i<g.bd.sides.length;i++)textItems(g,i,{}).forEach(it=>{
+    const dx=w[0]-it.x,dy=w[1]-it.y,ca=Math.cos(-it.rot),sa=Math.sin(-it.rot);let lx=dx*ca-dy*sa,ly=dx*sa+dy*ca;lx/=(it.st.sx||1);
+    const pad=it.fs*.2;if(Math.abs(lx-it.lay.ox)<=it.lay.w/2+pad&&Math.abs(ly-it.lay.oy)<=it.lay.h/2+pad){const d=Math.hypot(dx,dy);if(d<bd){bd=d;best={i,k:it.k}}}});
+  return best}
+function pieceText(c,g,i,o={}){
+  const bd=g.bd,B=S.bd,n=bd.sides.length,j=(i+1)%n,sd=bd.sides[i],fsN=B.thick*B.numSize;
+  c.save();c.fillStyle=B.tc;c.textAlign='center';c.textBaseline='middle';
+  textItems(g,i,o).forEach(it=>paintItem(c,it));
+  if(B.numOn){
+    const sA=numSpot(bd,i,1,sd,fsN),sZ=numSpot(bd,j,-1,sd,fsN);
+    c.globalAlpha=B.numOp;c.fillStyle=B.tc;c.font=`700 ${fsN}px "${B.font}",Georgia,serif`;
+    [[i,sA],[j,sZ]].forEach(([d,sp])=>{let a=sd.ang;if(!o.noflip&&(a>Math.PI/2||a<-Math.PI/2))a+=Math.PI;
+      c.save();c.translate(sp.x,sp.y);c.rotate(a);c.fillText(numLabel(d),0,0);c.restore()})}
+  c.restore()}
+function selectTx(i,k){selSet.clear();selLayer=null;selSide=-1;selHl.clear();selTx={i,k};renderSel();draw()}
+/* campos de estilo: mostram o valor atual e gravam só o que for alterado em "tgt" */
+function txFields(par,tgt,getRes,o={}){
+  const skip=new Set(o.skip||[]),mk=(key,label,type,a)=>{if(skip.has(key))return;const px={[key]:getRes()[key]};par.append(field(label,inp(px,key,type,a||{},()=>{tgt[key]=px[key]})))},
+    mkSel=(key,label,list)=>{if(skip.has(key))return;const px={[key]:getRes()[key]};par.append(field(label,sel_(px,key,list,()=>{tgt[key]=px[key]})))},h3=t=>par.append(el('h3',null,t));
+  h3('Posição e sentido');
+  mk('dx','Deslocar ao longo da borda','number',{min:-2000,max:2000,step:1});mk('dy','Deslocar para fora','number',{min:-2000,max:2000,step:1});
+  mkSel('dir','Sentido do texto',DIRS);mk('rot','Girar (graus)','number',{min:-360,max:360,step:1});mk('bend','Curvar (graus do arco)','number',{min:-360,max:360,step:5});mk('sx','Esticar na horizontal','number',{min:.3,max:3,step:.05});
+  h3('Letra');
+  mkSel('font','Fonte',fontOpts());mk('fs','Tamanho','number',{min:2,max:600,step:1});mk('bold','Negrito','checkbox');mk('italic','Itálico','checkbox');
+  mkSel('caps','Maiúsculas e minúsculas',[['none','Como digitado'],['upper','TUDO MAIÚSCULO'],['lower','tudo minúsculo'],['title','Primeira Letra Maiúscula']]);
+  mk('ls','Espaço entre letras','number',{min:-10,max:80,step:.5});mk('col','Cor','color');mk('op','Opacidade','number',{min:.05,max:1,step:.05});
+  h3('Borda do texto (contorno)');
+  mk('sc','Cor do contorno','color');mk('sw','Espessura do contorno','number',{min:0,max:40,step:.5});
+  h3('Sombra');
+  mk('sh','Sombra','checkbox');mk('shc','Cor da sombra','color');mk('shx','Deslocar sombra para a direita','number',{min:-60,max:60,step:.5});mk('shy','Deslocar sombra para baixo','number',{min:-60,max:60,step:.5});mk('sho','Opacidade da sombra','number',{min:0,max:1,step:.05});
+  h3('Brilho');
+  mk('glow','Tamanho do brilho','number',{min:0,max:80,step:1});mk('glc','Cor do brilho','color');mk('glA','Intensidade do brilho','number',{min:0,max:1,step:.05});
+  h3('Placa atrás do texto (com borda)');
+  mk('box','Placa','checkbox');mk('bf','Cor da placa','color');mk('bfo','Opacidade da placa','number',{min:0,max:1,step:.05});mk('bc','Cor da borda da placa','color');mk('bw','Espessura da borda da placa','number',{min:0,max:30,step:.5});
+  mk('bp','Margem interna (fração do tamanho)','number',{min:0,max:2,step:.05});mk('br','Arredondamento','number',{min:0,max:1,step:.05})}
+function txInspector(d,g){
+  const B=S.bd,{i,k}=selTx,names=(B.segs[i]||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(k>=names.length){selTx=null;renderSel();return}
+  d.append(el('h3',null,k<0?`Texto do lado ${i+1} (todos os nomes)`:`Texto: ${esc(names[k])} (lado ${i+1})`));
+  if(k>=0){const t=el('input','txt');t.type='text';t.value=names[k];t.style.width='100%';t.oninput=()=>{names[k]=t.value;B.segs[i]=names.join(', ');draw()};t.onchange=()=>{push();if(tab==='Bordas')renderPanel()};d.append(t)}
+  d.append(el('div','note',k<0?'Vale para todos os nomes deste lado, exceto os que tiverem ajuste próprio.':'Arraste o texto no mapa para mover livremente (ferramenta Mão). Os ajustes abaixo valem só para este nome.'));
+  const tgt=txTarget(i,k),getRes=()=>{const r=txRes(i,k),it=textItems(g,i,{}).find(x=>x.k===(k<0?0:k));return Object.assign(r,{col:r.col||B.tc,font:r.font||B.font,fs:r.fs!=null?r.fs:(it?it.fs:B.fs)})};
+  const pr=el('div','row');TX_PRESETS.forEach(([n,v])=>pr.append(btn(n,()=>{Object.assign(tgt,v);renderSel();draw();push()})));d.append(el('div','note','Estilos prontos:'),pr);
+  txFields(d,tgt,getRes);
+  addRow(d,btn('Tamanho automático',()=>{delete tgt.fs;renderSel();draw();push()}),btn('Limpar ajustes',()=>{if(k<0)B.ts[i]={};else B.tn[i][k]={};renderSel();draw();push()},'dan'));
+  const cp=(dst,keys)=>{Object.keys(tgt).forEach(q=>{if(q==='dx'||q==='dy')return;dst[q]=tgt[q]})};
+  if(k>=0)addRow(d,btn('Copiar estilo para todos os textos deste lado',()=>{B.ts=B.ts||[];cp(B.ts[i]||(B.ts[i]={}));draw();push();toast('Estilo copiado para o lado '+(i+1)+'.','ok')}));
+  addRow(d,btn('Copiar estilo para todos os textos da borda',()=>{Object.keys(tgt).forEach(q=>{if(q==='dx'||q==='dy')return;if(q==='col')B.tc=tgt[q];else if(q==='font')B.font=tgt[q];else if(q==='fs')B.fs=tgt[q];else B.tg[q]=tgt[q]});draw();push();toast('Estilo aplicado a todos os textos das bordas.','ok')}))}
+/* a borda é desenhada em 3 partes: preenchimento (sob as imagens de cima), textos/números e separadores (sempre por último) */
+function drawBorderFill(c,g){
+  const bd=g.bd,B=S.bd,n=bd.sides.length,per=B.fillOp<1;c.save();
+  if(!per){
+    c.beginPath();bd.out.forEach((p,k)=>k?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();
+    let first=true;bd.sides.forEach(sd=>{for(let k=0;k<sd.pts.length-1;k++){const p=sd.pts[k];if(first){c.moveTo(p[0],p[1]);first=false}else c.lineTo(p[0],p[1])}});c.closePath();
+    c.fillStyle=B.color;c.fill('evenodd')}
+  for(let i=0;i<n;i++)pieceFill(c,g,i,{base:per});
+  c.restore()}
+function drawBorderText(c,g){for(let i=0;i<g.bd.sides.length;i++)pieceText(c,g,i)}
+function drawBorderSep(c,g){
+  const bd=g.bd,B=S.bd;c.save();c.strokeStyle=B.lc;c.lineJoin='round';
+  if(B.cut){c.lineWidth=B.lw>0?B.lw:2;for(let i=0;i<bd.sides.length;i++){pathPts(c,piecePts(bd,i));c.stroke()}}
+  if(B.lw>0){c.lineWidth=B.lw;bd.div.forEach(dv=>{c.beginPath();dv.curve.forEach((p,k)=>k?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke()})}
+  c.restore()}
+function drawLayers(c,g,where){
+  const clip=where==='top'?S.ovClip:S.bgClip;
+  S.lay.forEach(L=>{if(L.vis===false||(L.where||'top')!==where)return;
+    if(clip&&L.k==='img'&&g.boardPoly){c.save();pathPts(c,g.boardPoly);c.clip();drawLayer(c,L);c.restore()}else drawLayer(c,L)})}
+const MC=document.createElement('canvas').getContext('2d');
+function layBox(L){
+  if(L.k==='img'){const m=IM[L.img];return{w:L.w,h:m?L.w*m.h/m.w:L.w}}
+  MC.font=`${L.bold?700:400} ${L.fs}px "${L.font}",Georgia,serif`;const ls=String(L.t).split('\n');
+  return{w:Math.max(10,...ls.map(t=>MC.measureText(t).width)),h:ls.length*L.fs*1.2}}
+function drawLayer(c,L){
+  c.save();c.globalAlpha=L.op;c.translate(L.x,L.y);c.rotate(L.rot*D2R);
+  if(L.k==='img'){const im=getImg(L.img);if(im){const b=layBox(L);c.drawImage(im,-b.w/2,-b.h/2,b.w,b.h)}}
+  else{c.font=`${L.bold?700:400} ${L.fs}px "${L.font}",Georgia,serif`;c.textAlign='center';c.textBaseline='middle';const ls=String(L.t).split('\n');
+    ls.forEach((t,i)=>{const y=(i-(ls.length-1)/2)*L.fs*1.2;if(L.sw>0){c.lineJoin='round';c.lineWidth=L.sw;c.strokeStyle=L.sc;c.strokeText(t,0,y)}c.fillStyle=L.color;c.fillText(t,0,y)})}
+  c.restore()}
+function drawBgImg(c,b,G){
+  const im=getImg(G.img);if(!im)return;
+  c.save();c.beginPath();c.rect(b.x,b.y,b.w,b.h);c.clip();c.globalAlpha=G.op;if(G.blur>0&&'filter'in c)c.filter=`blur(${G.blur}px)`;
+  const iw=im.width||im.naturalWidth,ih=im.height||im.naturalHeight;
+  if(G.mode==='tile'){c.fillStyle=c.createPattern(im,'repeat');c.fillRect(b.x,b.y,b.w,b.h)}
+  else if(G.mode==='stretch')c.drawImage(im,b.x+G.x,b.y+G.y,b.w*G.z,b.h*G.z);
+  else{const k=(G.mode==='cover'?Math.max(b.w/iw,b.h/ih):Math.min(b.w/iw,b.h/ih))*G.z;c.drawImage(im,b.x+b.w/2-iw*k/2+G.x,b.y+b.h/2-ih*k/2+G.y,iw*k,ih*k)}
+  c.restore()}
+/* ===== destaques de aresta (neon) ===== */
+const NEON=[['Verde neon','#39ff14'],['Ciano','#00f0ff'],['Rosa','#ff2bd6'],['Amarelo','#fff200'],['Laranja','#ff7a00'],['Vermelho','#ff1744'],['Roxo','#b026ff'],['Azul','#2979ff'],['Lima','#c6ff00'],['Branco','#ffffff']];
+const HL_KEYS=['side','col','gc','glow','glowA','core','cc','w','st','dl','cap','op','off','inset','join'];
+const sameEdge=(a,b)=>a.o===b.o&&a.c===b.c&&a.k===b.k&&a.s===b.s&&a.e===b.e&&a.j===b.j;
+function lineX(p1,p2,p3,p4){const x1=p1[0],y1=p1[1],x2=p2[0],y2=p2[1],x3=p3[0],y3=p3[1],x4=p4[0],y4=p4[1],den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);if(Math.abs(den)<1e-9)return null;const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den;return[x1+t*(x2-x1),y1+t*(y2-y1)]}
+/* segmento-base de uma aresta (sem deslocamento); n = normal para fora do dono (hexágono ou peça de borda) */
+function edgeGeo(g,e){
+  if(e.o==='hex'){
+    const p=g.L[e.c];if(!p)return null;const r=S.size-S.gap/SQ3,cs=[];
+    for(let k=0;k<6;k++){const an=D2R*(60*k+(S.flat?0:30));cs.push([p.x+r*Math.cos(an),p.y+r*Math.sin(an)])}
+    const sg=k=>{k=(k+6)%6;const na=D2R*(60*k+30+(S.flat?0:30));return{a:cs[k],b:cs[(k+1)%6],n:[Math.cos(na),Math.sin(na)]}};
+    return{...sg(e.k),prev:sg(e.k-1),next:sg(e.k+1),extra:S.ow/2}}
+  const bd=g.bd;if(!bd||!bd.sides[e.s])return null;
+  if(e.e==='out'){const n=bd.sides.length,a=bd.out[e.s],b=bd.out[(e.s+1)%n],ex=b[0]-a[0],ey=b[1]-a[1],l=Math.hypot(ex,ey)||1;return{a,b,n:[ey/l,-ex/l],prev:null,next:null,extra:0}}
+  const P=bd.sides[e.s].pts;if(e.j<0||e.j>=P.length-1)return null;
+  const sg=j=>{const a=P[j],b=P[j+1],ex=b[0]-a[0],ey=b[1]-a[1],l=Math.hypot(ex,ey)||1;return{a,b,n:[-ey/l,ex/l]}};
+  return{...sg(e.j),prev:e.j>0?sg(e.j-1):null,next:e.j+1<P.length-1?sg(e.j+1):null,extra:0}}
+/* segmento final do destaque: deslocado para dentro/fora/centro, com cantos unidos e pontas ajustadas */
+function hlSeg(g,h){
+  const E=edgeGeo(g,h);if(!E)return null;const w=h.w,off=h.off||0,dist=off+w/2+E.extra,ds=h.side==='out'?dist:h.side==='ctr'?off:-dist;
+  const sh=(sg,d)=>[[sg.a[0]+sg.n[0]*d,sg.a[1]+sg.n[1]*d],[sg.b[0]+sg.n[0]*d,sg.b[1]+sg.n[1]*d]],m=sh(E,ds);let A=m[0],B=m[1];
+  if(h.join){if(E.prev){const q=sh(E.prev,ds),x=lineX(q[0],q[1],m[0],m[1]);if(x)A=x}if(E.next){const q=sh(E.next,ds),x=lineX(m[0],m[1],q[0],q[1]);if(x)B=x}}
+  const L=Math.hypot(B[0]-A[0],B[1]-A[1]),ins=h.inset||0;if(L<1e-6||L<=2*ins)return null;const u=[(B[0]-A[0])/L,(B[1]-A[1])/L];
+  return{a:[A[0]+u[0]*ins,A[1]+u[1]*ins],b:[B[0]-u[0]*ins,B[1]-u[1]*ins],n:E.n}}
+function hlPath(c,h,a,b){
+  const L=Math.hypot(b[0]-a[0],b[1]-a[1]),u=[(b[0]-a[0])/L,(b[1]-a[1])/L],pn=[-u[1],u[0]],w=h.w,dl=h.dl||1;c.beginPath();
+  const line=o=>{c.moveTo(a[0]+pn[0]*o,a[1]+pn[1]*o);c.lineTo(b[0]+pn[0]*o,b[1]+pn[1]*o)};
+  if(h.st==='double'){line(w*.75);line(-w*.75)}
+  else if(h.st==='wave'||h.st==='zigzag'){
+    const amp=w*.9*dl,wl=w*5*dl,N=Math.max(2,Math.ceil(L/(wl/(h.st==='wave'?12:2))));
+    for(let i=0;i<=N;i++){const x=L*i/N,v=h.st==='wave'?Math.sin(x/wl*2*Math.PI):Math.abs(((x/wl)%1)*4-2)-1,px=a[0]+u[0]*x+pn[0]*amp*v,py=a[1]+u[1]*x+pn[1]*amp*v;i?c.lineTo(px,py):c.moveTo(px,py)}}
+  else line(0)}
+function strokeNeon(c,h,a,b){
+  const w=h.w,dl=h.dl||1;c.save();c.lineCap=h.cap||'round';c.lineJoin='round';
+  let dash=[];if(h.st==='dashed')dash=[w*3*dl,w*2*dl];else if(h.st==='dotted'){dash=[.001,w*2*dl];c.lineCap='round'}else if(h.st==='dashdot')dash=[w*4*dl,w*1.6*dl,.001,w*1.6*dl];
+  c.setLineDash(dash);
+  const pass=(wid,col,al)=>{c.globalAlpha=Math.max(0,Math.min(1,al));c.strokeStyle=col;c.lineWidth=wid;hlPath(c,h,a,b);c.stroke()};
+  if(h.glow>0){const N=8,gc=h.gc||h.col;for(let i=N;i>=1;i--){const t=i/N;pass(w+h.glow*2*t,gc,h.op*h.glowA*Math.pow(1-t,1.8)*.4)}}
+  pass(w,h.col,h.op);
+  if(h.core>0)pass(Math.max(.3,w*h.core),h.cc||'#ffffff',h.op*.95);
+  c.restore()}
+function drawHighlights(c,g){S.hl.forEach(h=>{const sg=hlSeg(g,h);if(sg)strokeNeon(c,h,sg.a,sg.b)})}
+function pointInHex(w,p){const ap=S.size*SQ3/2;for(let k=0;k<6;k++){const na=D2R*(60*k+30+(S.flat?0:30));if((w[0]-p.x)*Math.cos(na)+(w[1]-p.y)*Math.sin(na)>ap)return false}return true}
+/* aresta sob o ponto: dentro de um hexágono → aresta dele; dentro de uma peça de borda → aresta interna ou externa dela */
+function hitEdge(w){
+  const g=geom();let hx=-1,bd0=1e18;
+  g.L.forEach((p,i)=>{const d=Math.hypot(p.x-w[0],p.y-w[1]);if(d<S.size*1.01&&d<bd0&&pointInHex(w,p)){bd0=d;hx=i}});
+  if(hx>=0){let best=0,bd=1e18;for(let k=0;k<6;k++){const E=edgeGeo(g,{o:'hex',c:hx,k}),d=distSeg(w,E.a,E.b);if(d<bd){bd=d;best=k}}return{o:'hex',c:hx,k:best}}
+  const hp=hitPiece(w);
+  if(hp>=0){const b=g.bd,P=b.sides[hp].pts;let best=null,bd=1e18;for(let j=0;j<P.length-1;j++){const d=distSeg(w,P[j],P[j+1]);if(d<bd){bd=d;best={o:'bord',s:hp,e:'in',j}}}
+    const n=b.sides.length;if(distSeg(w,b.out[hp],b.out[(hp+1)%n])<bd)best={o:'bord',s:hp,e:'out',j:0};return best}
+  return null}
+function edgeClick(w,G){
+  const e=hitEdge(w);
+  if(!e){if(!(G.ctrl||G.shift))selHl.clear();renderSel();draw();return}
+  selSet.clear();selLayer=null;selSide=-1;selTx=null;
+  let h=S.hl.find(x=>sameEdge(x,e));
+  if(G.alt){if(h){S.hl=S.hl.filter(x=>x!==h);selHl.delete(h.id);push()}renderSel();if(tab==='Destaques')renderPanel();draw();return}
+  if(!h){h=Object.assign({id:uid()},e,JSON.parse(JSON.stringify(S.hlDef)));S.hl.push(h);push()}
+  if(G.ctrl||G.shift){selHl.has(h.id)?selHl.delete(h.id):selHl.add(h.id)}else selHl=new Set([h.id]);
+  renderSel();if(tab==='Destaques')renderPanel();draw()}
+function batchHl(kind,side){
+  const g=geom();if(!g.bd){toast('Ligue as bordas primeiro (aba Bordas).','bad');return}
+  const n=g.bd.sides.length,ids=[];
+  const mk=e=>{if(!S.hl.some(x=>sameEdge(x,e))){const h=Object.assign({id:uid()},e,JSON.parse(JSON.stringify(S.hlDef)));S.hl.push(h);ids.push(h.id)}};
+  if(kind==='hexes'){if(!g.bd.edgeSide){toast('Não consegui identificar as arestas encostadas na borda neste formato.','bad');return}g.bd.edgeSide.forEach((sd,key)=>{if(side<0||sd===side)mk({o:'hex',c:Math.floor(key/6),k:key%6})})}
+  else if(kind==='inner'){for(let i=0;i<n;i++)if(side<0||i===side){const P=g.bd.sides[i].pts;for(let j=0;j<P.length-1;j++)mk({o:'bord',s:i,e:'in',j})}}
+  else if(kind==='outer'){for(let i=0;i<n;i++)if(side<0||i===side)mk({o:'bord',s:i,e:'out',j:0})}
+  else if(kind==='remove'){
+    const es=g.bd.edgeSide,before=S.hl.length;
+    S.hl=S.hl.filter(h=>!((h.o==='bord'&&h.s===side)||(h.o==='hex'&&es&&es.get(h.c*6+h.k)===side)));
+    selHl.clear();renderAll(false);push();toast(`${before-S.hl.length} destaque(s) removido(s).`,'ok');return}
+  selSet.clear();selLayer=null;selSide=-1;selTx=null;selHl=new Set(ids);
+  renderPanel();renderSel();draw();push();toast(ids.length?`${ids.length} destaque(s) criado(s) e selecionado(s): ajuste cor e estilo no painel da direita.`:'Esses destaques já existiam.',ids.length?'ok':'')}
+function hlStyleFields(par,objs,withSide){
+  const mk=(key,label,type,a)=>{const px={[key]:objs[0][key]};par.append(field(label,inp(px,key,type,a||{},()=>{objs.forEach(o=>{o[key]=px[key]})})))};
+  const mkSel=(key,label,opts)=>{const px={[key]:objs[0][key]};par.append(field(label,sel_(px,key,opts,()=>{objs.forEach(o=>{o[key]=px[key]})})))};
+  if(withSide)mkSel('side','Lado da aresta',[['in','Dentro'],['out','Fora'],['ctr','Em cima da aresta']]);
+  mk('col','Cor','color');mk('gc','Cor do brilho','color');
+  mk('glow','Brilho: tamanho','number',{min:0,max:120,step:1});mk('glowA','Brilho: intensidade','number',{min:0,max:1,step:.05});
+  mk('core','Núcleo claro (0 = sem)','number',{min:0,max:.95,step:.05});mk('cc','Cor do núcleo','color');
+  mk('w','Espessura','number',{min:.5,max:80,step:.5});
+  mkSel('st','Estilo do traço',[['solid','Contínuo'],['dashed','Tracejado'],['dotted','Pontilhado'],['dashdot','Traço e ponto'],['double','Duplo'],['wave','Ondulado'],['zigzag','Zigue-zague']]);
+  mk('dl','Tamanho do padrão','number',{min:.3,max:5,step:.1});
+  mkSel('cap','Pontas',[['round','Redondas'],['butt','Retas'],['square','Quadradas']]);
+  mk('op','Opacidade','number',{min:.05,max:1,step:.05});
+  mk('off','Afastamento da aresta','number',{min:-60,max:200,step:.5});
+  mk('inset','Encurtar pontas','number',{min:-60,max:200,step:.5});
+  mk('join','Unir cantos','checkbox')}
+function tDest(p){
+  const g=geom();
+  p.append(el('div','note','Destaque de arestas: marque arestas de hexágonos ou de bordas com traços neon, para mostrar ao jogador onde dá para interagir com as bordas. Ative a ferramenta <b>Aresta</b> (abaixo do mapa), clique perto da aresta (por dentro do hexágono ou dentro da borda) e escolha lado, cor e estilo no painel da direita. Shift ou Ctrl+clique soma à seleção; Alt+clique remove; Delete apaga.'));
+  addRow(p,btn('Ativar ferramenta Aresta',()=>{tool='edge';cv.style.cursor='crosshair';syncBrush()},'pri'));
+  p.append(field('Mostrar destaques',inp(S,'hlOn','checkbox')),field('Destaques acima das imagens de cima',inp(S,'hlTop','checkbox')));
+  p.append(el('h3',null,'Cores neon'),el('div','note','Vale para o estilo padrão e para os destaques selecionados.'));
+  const pal=el('div','row');NEON.forEach(([n,c])=>{const b=btn('',()=>{[S.hlDef,...S.hl.filter(h=>selHl.has(h.id))].forEach(o=>{o.col=c;o.gc=c});renderPanel();renderSel();draw();push()});b.title=n;b.style.cssText='width:34px;height:34px;padding:0;border-radius:50%;background:'+c+';box-shadow:0 0 10px '+c;pal.append(b)});p.append(pal);
+  p.append(el('h3',null,'Estilo padrão dos novos destaques'));hlStyleFields(p,[S.hlDef],true);
+  p.append(el('h3',null,'Em lote'));
+  if(g.bd){const n=g.bd.sides.length,o={s:'-1'};
+    p.append(field('Lado da borda',sel_(o,'s',[['-1','Todos'],...Array.from({length:n},(_,i)=>[String(i),'Lado '+(i+1)])])));
+    addRow(p,btn('Hexágonos que tocam a borda',()=>batchHl('hexes',+o.s)),btn('Face interna da borda',()=>batchHl('inner',+o.s)),btn('Face externa da borda',()=>batchHl('outer',+o.s)));
+    addRow(p,btn('Remover destaques deste lado',()=>batchHl('remove',+o.s),'dan'))}
+  else p.append(el('div','note','Ligue as bordas para usar os atalhos em lote.'));
+  addRow(p,btn('Selecionar todos',()=>{selSet.clear();selLayer=null;selSide=-1;selTx=null;selHl=new Set(S.hl.map(h=>h.id));renderSel();draw()}),btn('Remover todos',()=>{if(S.hl.length&&confirm(`Remover os ${S.hl.length} destaques?`)){S.hl=[];selHl.clear();renderAll(false);push()}},'dan'));
+  p.append(el('div','note',`Destaques no mapa: <b>${S.hl.length}</b>`))}
+function renderScene(c,g,o={}){
+  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';const b=g.b,G=S.bg;
+  if(!o.transparent){
+    if(G.grad){const gr=c.createLinearGradient(b.x,b.y,b.x,b.y+b.h);gr.addColorStop(0,G.color);gr.addColorStop(1,G.c2);c.fillStyle=gr}else c.fillStyle=G.color;
+    c.fillRect(b.x,b.y,b.w,b.h);drawBgImg(c,b,G);(S.bgs||[]).forEach(B2=>{if(B2.vis!==false)drawBgImg(c,b,B2)})}
+  drawLayers(c,g,'back');
+  g.L.forEach((p,i)=>drawCell(c,p,S.cells[i]||{},i));
+  if(g.bd){drawBorderFill(c,g);if(!S.bd.textTop)drawBorderText(c,g)}
+  if(S.hlOn&&!S.hlTop)drawHighlights(c,g);
+  drawLayers(c,g,'top');
+  if(g.bd){if(S.bd.textTop)drawBorderText(c,g);drawBorderSep(c,g)}
+  if(S.hlOn&&S.hlTop)drawHighlights(c,g)}
+const cv=$('#cv'),cx=cv.getContext('2d');
+let _raf=0;function draw(){if(_raf)return;_raf=requestAnimationFrame(()=>{_raf=0;paint()})}
+function paint(){
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#0a1219';cx.fillRect(0,0,cv.width,cv.height);
+  const g=geom(),sig=Math.round(g.b.w)+'x'+Math.round(g.b.h);
+  if(sig!==lastSig){lastSig=sig;const sw=g.b.w*view.z,sh=g.b.h*view.z;if(!userMoved||sw>W*1.2||sh>H*1.2||(sw<W*.1&&sh<H*.1)){userMoved=false;fitMath(g,W,H)}}
+  ORIG=false;NEEDPX=S.size*2*view.z*dpr;
+  cx.setTransform(dpr*view.z,0,0,dpr*view.z,dpr*view.x,dpr*view.y);cx.translate(-g.b.x,-g.b.y);
+  renderScene(cx,g);
+  selSet.forEach(i=>{const p=g.L[i];if(!p)return;hexPath(cx,p.x,p.y,S.size,S.flat,S.rad);cx.lineWidth=Math.max(3,S.size*.1)/Math.max(.6,Math.min(1,view.z*1.5));cx.strokeStyle=i===selPrim?'#ffffff':'#d9a441';cx.stroke()});
+  const L=S.lay.find(l=>l.id===selLayer);
+  if(L){const b=layBox(L);cx.save();cx.translate(L.x,L.y);cx.rotate(L.rot*D2R);cx.lineWidth=2/view.z;cx.strokeStyle='#d9a441';cx.setLineDash([8/view.z,5/view.z]);cx.strokeRect(-b.w/2,-b.h/2,b.w,b.h);cx.restore()}
+  if(selSide>=0&&g.bd&&selSide<g.bd.sides.length){cx.save();pathPts(cx,piecePts(g.bd,selSide));cx.lineWidth=3/view.z;cx.strokeStyle='#d9a441';cx.setLineDash([10/view.z,6/view.z]);cx.stroke();cx.restore()}
+  if(hovOv){const h=S.hov.find(x=>x.id===hovOv);if(h)g.L.forEach((p,i)=>{if(ovApplies(h,S.cells[i]||{},i)){hexPath(cx,p.x,p.y,S.size*.9,S.flat,S.rad);cx.lineWidth=Math.max(2.5,S.size*.07);cx.strokeStyle='#ff9f1a';cx.stroke()}})}
+  selHl.forEach(id=>{const h=S.hl.find(x=>x.id===id);if(!h)return;const sg=hlSeg(g,h);if(!sg)return;cx.save();cx.setLineDash([6/view.z,4/view.z]);cx.lineWidth=1.5/view.z;cx.strokeStyle='#ffffff';cx.beginPath();cx.moveTo(sg.a[0],sg.a[1]);cx.lineTo(sg.b[0],sg.b[1]);cx.stroke();cx.setLineDash([]);[sg.a,sg.b].forEach(q=>{cx.beginPath();cx.arc(q[0],q[1],3.5/view.z,0,7);cx.fillStyle='#ffffff';cx.fill()});cx.restore()});
+  if(selTx&&g.bd&&selTx.i<g.bd.sides.length)textItems(g,selTx.i,{}).forEach(it=>{if(selTx.k>=0&&it.k!==selTx.k)return;const hw=it.lay.w*it.st.sx/2+it.fs*.2,hh=it.lay.h/2+it.fs*.15;cx.save();cx.translate(it.x,it.y);cx.rotate(it.rot);cx.setLineDash([6/view.z,4/view.z]);cx.lineWidth=1.5/view.z;cx.strokeStyle='#d9a441';cx.strokeRect(it.lay.ox*it.st.sx-hw,it.lay.oy-hh,2*hw,2*hh);cx.restore()});
+  if(hoverEdge&&tool==='edge'){const E=edgeGeo(g,hoverEdge);if(E){cx.save();cx.lineWidth=2.5/view.z;cx.strokeStyle='#ffffff';cx.globalAlpha=.85;cx.beginPath();cx.moveTo(E.a[0],E.a[1]);cx.lineTo(E.b[0],E.b[1]);cx.stroke();cx.restore()}}
+  if(rectSel){cx.save();cx.lineWidth=1.5/view.z;cx.strokeStyle='#d9a441';cx.fillStyle='#d9a44122';const a=Math.min(rectSel.x0,rectSel.x1),b2=Math.min(rectSel.y0,rectSel.y1),w=Math.abs(rectSel.x1-rectSel.x0),h=Math.abs(rectSel.y1-rectSel.y0);cx.fillRect(a,b2,w,h);cx.strokeRect(a,b2,w,h);cx.restore()}
+  const t=$('#cnt');if(t)t.innerHTML=statusHTML()}
+function fitMath(g,W,H){view.z=Math.min(W/g.b.w,H/g.b.h)*.96;view.x=(W-g.b.w*view.z)/2;view.y=(H-g.b.h*view.z)/2}
+function fit(){const g=geom(),W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;userMoved=false;fitMath(g,W,H);draw()}
+function zoomAt(px,py,f){userMoved=true;const nz=clamp(view.z*f,.02,40);view.x=px-(px-view.x)*nz/view.z;view.y=py-(py-view.y)*nz/view.z;view.z=nz;draw()}
+function statusHTML(){const n=layout().length,tot=S.cats.reduce((a,c)=>a+c.qty,0),ok=n===tot;
+  return`Hexágonos no mapa: <b>${n}</b> · Peças nas categorias: <b class="${ok?'ok':'bad'}">${tot}</b>${ok?'':` (${tot>n?'sobram':'faltam'} ${Math.abs(tot-n)})`}`}
+
+/* ================= histórico ================= */
+function push(){const j=JSON.stringify(S);if(j===hist[hi])return;hist.splice(hi+1);hist.push(j);if(hist.length>100)hist.shift();hi=hist.length-1;autosave()}
+function restore(){S=deepMerge(defState(),JSON.parse(hist[hi]));ensureCells();selSet.clear();selLayer=null;selSide=-1;selHl.clear();selTx=null;renderAll(false)}
+const undo=()=>{if(hi>0){hi--;restore()}},redo=()=>{if(hi<hist.length-1){hi++;restore()}};
+
+/* ================= componentes de formulário ================= */
+function field(label,input,cls){const l=el('label','f'+(cls?' '+cls:''));l.append(el('span',null,label),input);return l}
+function inp(o,k,type='number',a={},after){
+  const i=el('input');i.type=type;
+  if(type==='checkbox'){i.checked=!!o[k];i.onchange=()=>{o[k]=i.checked;after&&after(true);draw();push()};return i}
+  i.value=o[k]??'';const{min,max}=a;Object.assign(i,a);
+  i.oninput=()=>{let v=i.value;if(type==='number'){v=parseFloat(v);if(isNaN(v)||(min!=null&&v<min)||(max!=null&&v>max))return}o[k]=v;after&&after(false);draw()};
+  i.onchange=()=>{if(type==='number'){let v=parseFloat(i.value);if(isNaN(v))v=o[k];if(min!=null)v=Math.max(min,v);if(max!=null)v=Math.min(max,v);o[k]=v;i.value=v}after&&after(true);draw();push()};
+  return i}
+function sel_(o,k,opts,after){const s=el('select');opts.forEach(([v,l])=>{const e=el('option',null,esc(l));e.value=v;s.append(e)});s.value=String(o[k]);s.onchange=()=>{o[k]=s.value;after&&after();draw();push()};return s}
+function btn(l,fn,c){const b=el('button',c,l);b.onclick=fn;return b}
+function addRow(par,...kids){const r=el('div','row');r.append(...kids);par.append(r);return r}
+const cellsChanged=()=>{ensureCells();renderPanel();renderSel();draw()};
+const onFinal=f=>fin=>{ensureCells();if(fin)(f||renderPanel)()};
+const fontOpts=()=>[...['Cinzel','Georgia','Times New Roman','Arial','Trebuchet MS','Impact','Courier New'],...S.fonts.map(f=>f.family)].map(f=>[f,f]);
+/* arquivos: seletor e arrastar-e-soltar */
+function pickFiles(multi,accept,cb){const i=$('#fileIn');i.value='';i.multiple=!!multi;i.accept=accept||'image/*';i.onchange=()=>{const fs=[...i.files];i.value='';if(fs.length)cb(fs)};i.click()}
+async function eachFile(files,fn){let ok=0;for(const f of files){try{await fn(await addFile(f),f);ok++}catch(e){toast(e.message,'bad',9000)}}if(ok){push();renderPanel();renderSel();draw()}return ok}
+function dropZone(e,cb){
+  e.addEventListener('dragover',ev=>{ev.preventDefault();ev.stopPropagation();e.classList.add('drop')});
+  e.addEventListener('dragleave',()=>e.classList.remove('drop'));
+  e.addEventListener('drop',ev=>{ev.preventDefault();ev.stopPropagation();e.classList.remove('drop');const fs=[...ev.dataTransfer.files];if(fs.length)cb(fs)})}
+function zone(label,id,cb,multi){const z=el('div','zone');if(id&&IM[id])z.style.backgroundImage=`url(${IM[id].url})`;z.append(el('span',null,label));z.title=label+': clique ou solte um arquivo aqui';z.onclick=()=>pickFiles(multi,'image/*',cb);dropZone(z,cb);return z}
+
+/* ================= painéis ================= */
+const TABS=['Mapa','Bordas','Categorias','Imagens','Camadas','Sobrepor PNG','Destaques','Montagem','Exportar'];
+function renderTabs(){const t=$('#tabs');t.innerHTML='';TABS.forEach(n=>{const b=btn(n,()=>{tab=n;renderTabs();renderPanel()});if(n===tab)b.className='on';t.append(b)})}
+function renderPanel(){const p=$('#panel');p.innerHTML='';const cn=el('div','note');cn.id='cnt';p.append(cn);
+  ({Mapa:tMapa,Bordas:tBordas,Categorias:tCats,Imagens:tImgs,Camadas:tCam,'Sobrepor PNG':tHov,Destaques:tDest,Montagem:tMont,Exportar:tExp})[tab](p);syncBrush();draw()}
+function renderAll(fitView=true){renderTabs();renderPanel();renderSel();if(fitView)fit();else draw()}
+
+function tMapa(p){
+  p.append(field('Formato',sel_(S,'shape',[['hex','Hexágono (camadas)'],['rect','Retângulo'],['rows','Linhas personalizadas']],cellsChanged)));
+  if(S.shape==='hex')p.append(field('Camadas',inp(S,'layers','number',{min:1,max:30},onFinal())));
+  if(S.shape==='rect'){p.append(field('Colunas',inp(S,'cols','number',{min:1,max:70},onFinal())),field('Linhas',inp(S,'rn','number',{min:1,max:70},onFinal())))}
+  if(S.shape==='rows'){p.append(field('Peças por linha',inp(S,'rowsStr','text',{},onFinal())));p.append(el('div','note','Separe por vírgula. Ex.: 6,7,8,9,10,9,8,7,6. Linhas vizinhas encaixam sozinhas. Máximo de 5000 hexágonos.'))}
+  const o={f:S.flat?'1':'0'};p.append(field('Orientação',sel_(o,'f',[['0','Ponta para cima'],['1','Lado reto para cima']],()=>{S.flat=o.f==='1';renderPanel()})));
+  p.append(el('h3',null,'Tamanho e contorno'));
+  p.append(field('Tamanho do hexágono',inp(S,'size','number',{min:4,max:400,step:1})),field('Espaço entre hexágonos',inp(S,'gap','number',{min:0,max:100,step:.5})),field('Cantos arredondados (0–1)',inp(S,'rad','number',{min:0,max:1,step:.05})),
+    field('Espessura do contorno',inp(S,'ow','number',{min:0,max:60,step:.5})),field('Cor do contorno',inp(S,'oc','color')),field('Estilo do contorno',sel_(S,'ostyle',[['solid','Sólido'],['dashed','Tracejado'],['dotted','Pontilhado']])),
+    field('Margem ao redor',inp(S,'margin','number',{min:0,max:500})),field('Cor de hexágono vazio',inp(S,'emptyColor','color')));
+  p.append(el('h3',null,'Textos nos hexágonos'));
+  p.append(field('Mostrar numeração',inp(S,'showNums','checkbox')),field('Cor da numeração',inp(S,'numColor','color')),field('Mostrar nome da categoria',inp(S,'showLabels','checkbox')),field('Tamanho do nome (0.1–0.6)',inp(S,'labelSize','number',{min:.1,max:.6,step:.02})),field('Cor do nome',inp(S,'labelColor','color')));
+  p.append(el('div','note','Tamanhos em unidades do desenho. O tamanho real em cm é definido na hora de exportar, e tudo escala junto.'))}
+
+function assignSideArt(fs,start){
+  const g=geom();if(!g.bd){toast('Ligue as bordas primeiro (aba Bordas).','bad');return}
+  const n=g.bd.sides.length;fs=[...fs].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  if(fs.length>n)toast(`Há ${fs.length} imagens e ${n} lados: usei só as ${n} primeiras, em ordem alfabética.`,'',7000);
+  let k=0;return eachFile(fs.slice(0,n),id=>{const i=(start+k++)%n,sd=S.bd.sd[i]||(S.bd.sd[i]={img:null,ov:null,z:1,x:0,y:0,os:.8});sd.img=id}).then(ok=>{if(ok)toast(`${ok} arte(s) aplicada(s), a partir do lado ${start+1}.`,'ok')})}
+function sideCard(i){
+  const B=S.bd,g=geom(),n=g.bd?g.bd.sides.length:0,sd=B.sd[i]||(B.sd[i]={img:null,ov:null,z:1,x:0,y:0,os:.8}),card=el('div','card');
+  card.append(el('div','note','<b>Lado '+(i+1)+'</b>'));
+  const t=el('textarea','txt');t.style.width='100%';t.style.minHeight='46px';t.value=B.segs[i]||'';t.oninput=()=>{B.segs[i]=t.value;draw()};t.onchange=push;card.append(t);
+  {const nm=(B.segs[i]||'').split(',').map(x=>x.trim()).filter(Boolean);if(nm.length){const r=el('div','row');r.append(el('span','note','Editar texto:'),btn('Estilo do lado',()=>selectTx(i,-1)));nm.forEach((x,k)=>r.append(btn(x.length>14?x.slice(0,13)+'…':x,()=>selectTx(i,k))));card.append(r)}}
+  const cc=el('input');cc.type='color';cc.value=B.segBg[i]||B.color;cc.title='Cor deste lado';cc.oninput=()=>{B.segBg[i]=cc.value;draw()};cc.onchange=push;
+  const rb=btn('cor padrão',()=>{B.segBg[i]='';renderPanel();renderSel();push()});rb.style.padding='2px 6px';addRow(card,cc,rb);
+  const zr=el('div','row');zr.append(zone('Arte',sd.img,fs=>eachFile(fs.slice(0,1),id=>{sd.img=id})),zone('PNG',sd.ov,fs=>eachFile(fs.slice(0,1),id=>{sd.ov=id})));
+  if(sd.img||sd.ov)zr.append(btn('Limpar',()=>{sd.img=sd.ov=null;renderPanel();renderSel();push()}));card.append(zr);
+  card.append(field('Zoom da arte',inp(sd,'z','number',{min:.2,max:8,step:.05})),field('Deslocar X',inp(sd,'x','number')),field('Deslocar Y',inp(sd,'y','number')),field('Tamanho do PNG',inp(sd,'os','number',{min:.1,max:3,step:.05})));
+  if(sd.img||sd.ov)addRow(card,btn('Usar esta arte em todos os lados',()=>{for(let k=0;k<n;k++){const o=B.sd[k]||(B.sd[k]={img:null,ov:null,z:1,x:0,y:0,os:.8});o.img=sd.img;o.ov=sd.ov;o.z=sd.z;o.x=sd.x;o.y=sd.y;o.os=sd.os}renderPanel();renderSel();push()}));
+  return card}
+function tBordas(p){
+  const B=S.bd;p.append(field('Mostrar bordas',inp(B,'on','checkbox',{},()=>renderPanel())));
+  const g=geom(),has=!!g.bd,n=has?g.bd.sides.length:0;
+  if(has){
+    p.append(el('h3',null,'Artes das bordas (jeito rápido)'));
+    const dz=el('div','zone');dz.style.cssText+='width:100%;height:64px;background-image:none';dz.append(el('span',null,'Solte aqui as imagens das bordas (1 por lado, em ordem alfabética) ou clique para escolher várias'));
+    dz.onclick=()=>pickFiles(true,'image/*',fs=>assignSideArt(fs,0));dropZone(dz,fs=>assignSideArt(fs,0));p.append(dz);
+    const gr=el('div','row');for(let i=0;i<n;i++){const sd=B.sd[i]||{};gr.append(zone(String(i+1),sd.img,fs=>assignSideArt(fs,i),true))}p.append(gr);
+    addRow(p,btn('Mesma imagem em todos os lados',()=>pickFiles(false,'image/*',fs=>eachFile(fs.slice(0,1),id=>{for(let k=0;k<n;k++){const o=B.sd[k]||(B.sd[k]={img:null,ov:null,z:1,x:0,y:0,os:.8});o.img=id}}))),
+      btn('Limpar todas as artes',()=>{B.sd.forEach(o=>{if(o)o.img=o.ov=null});B.ring.img=null;renderPanel();renderSel();push()},'dan'));
+    p.append(el('div','note','Atalhos: solte uma imagem direto sobre a borda no mapa para colocar a arte naquele lado (várias imagens seguem para os próximos lados). Clique numa borda no mapa para editar só ela.'));
+    p.append(el('h3',null,'Arte única da borda inteira'));
+    addRow(p,zone('Borda inteira',B.ring.img,fs=>eachFile(fs.slice(0,1),id=>{B.ring.img=id})),B.ring.img?btn('Remover',()=>{B.ring.img=null;renderPanel();push()},'dan'):el('span'));
+    p.append(field('Zoom',inp(B.ring,'z','number',{min:.2,max:8,step:.05})),field('Deslocar X',inp(B.ring,'x','number')),field('Deslocar Y',inp(B.ring,'y','number')),field('Opacidade',inp(B.ring,'op','number',{min:0,max:1,step:.05})),
+      el('div','note','Uma imagem esticada por toda a borda e recortada no formato dela; as artes de cada lado ficam por cima desta.'))}
+  p.append(el('h3',null,'Encaixe e forma'),
+    field('Encaixe nos hexágonos',sel_(B,'fit',[['hex','Acompanha o contorno dos hexágonos'],['straight','Linha reta']],()=>renderPanel())),
+    field('Folga (0 = encosta)',inp(B,'pad','number',{min:-50,max:200,step:.5})),
+    field('Espessura da borda',inp(B,'thick','number',{min:5,max:600})),
+    field('Cor da borda',inp(B,'color','color')),
+    field('Opacidade da cor (0 = transparente)',inp(B,'fillOp','number',{min:0,max:1,step:.05})),
+    field('Contorno de corte em cada peça',inp(B,'cut','checkbox')),
+    field('Cor das divisórias e do corte',inp(B,'lc','color')),
+    field('Espessura das divisórias',inp(B,'lw','number',{min:0,max:40,step:.5})));
+  const tr=el('div','row');tr.append(btn('Bordas transparentes',()=>{B.fillOp=0;renderPanel();push()}),btn('Cor sólida',()=>{B.fillOp=1;renderPanel();push()}));p.append(tr);
+  p.append(el('div','note','Transparente deixa aparecer o fundo e as imagens de fundo por baixo da borda (e sai sem cor nas peças exportadas). As artes das bordas continuam visíveis. As divisórias ficam sempre acima de todas as imagens. "Acompanha o contorno" faz a face de dentro copiar a linha em zigue-zague dos hexágonos, sem vão; a espessura conta a partir das pontas dos hexágonos.'));
+  p.append(el('h3',null,'Encaixes de quebra-cabeça'),
+    field('Ativar encaixes entre as bordas',inp(B,'puz','checkbox',{},()=>renderPanel())));
+  if(B.puz)p.append(field('Formato',sel_(B,'puzShape',[['round','Redondo (com pescoço)'],['dove','Cauda de andorinha']])),field('Tamanho do encaixe',inp(B,'puzSize','number',{min:.2,max:.9,step:.05})),field('Inverter lado (macho/fêmea)',inp(B,'puzFlip','checkbox')),
+    el('div','note','Cada borda tem um encaixe macho num canto e a fêmea correspondente no outro. O contorno é o mesmo nas duas peças, então elas se encaixam sem sobra. O encaixe se ajusta sozinho ao espaço disponível.'));
+  p.append(el('h3',null,'Números de montagem'),
+    field('Mostrar números nos cantos',inp(B,'numOn','checkbox',{},()=>renderPanel())));
+  if(B.numOn)p.append(field('Estilo',sel_(B,'numStyle',[['123','1, 2, 3…'],['abc','A, B, C…']])),field('Tamanho (fração da espessura)',inp(B,'numSize','number',{min:.08,max:.5,step:.01})),field('Opacidade (discreto)',inp(B,'numOp','number',{min:.1,max:1,step:.05})),
+    el('div','note','O mesmo número aparece nas duas bordas que se encontram naquele canto: 1 encaixa no 1, 2 no 2, e assim por diante.'));
+  p.append(el('h3',null,'Texto e imagens'),field('Cor do texto',inp(B,'tc','color')),field('Tamanho do texto',inp(B,'fs','number',{min:4,max:200})),field('Fonte',sel_(B,'font',fontOpts())),
+    field('Nomes e números acima das imagens de cima',inp(B,'textTop','checkbox')),
+    field('Orientação das imagens',sel_(B,'imgOri',[['out','Topo da imagem para fora'],['in','Topo da imagem para dentro'],['up','Sempre em pé']])));
+  p.append(el('h3',null,'Estilo de todos os textos das bordas'),el('div','note','Vale para todos os nomes, a não ser que um lado ou um nome tenha ajuste próprio. Para mexer num texto só, clique nele no mapa (e arraste para mover livremente) ou use os botões "Editar texto" em cada lado, mais abaixo. Cor, tamanho e fonte gerais ficam acima, em "Texto e imagens".'));
+  txFields(p,B.tg,()=>Object.assign({},TX_DEF,B.tg),{skip:['dx','dy','col','font','fs']});
+  if(!has){p.append(el('div','note',B.on?'A borda precisa de pelo menos 3 hexágonos que não estejam todos em linha reta.':'Bordas desligadas.'));return}
+  if(B.fit==='hex'&&!g.bd.fitOK)p.append(el('div','note bad','Neste formato não consegui acompanhar o contorno; usando linha reta.'));
+  p.append(el('h3',null,'Lados da borda'),el('div','note','Começa no topo e segue em sentido horário. Nomes das casas separados por vírgula; o texto se divide igualmente no lado e encolhe se não couber. A arte preenche a peça; o PNG fica por cima, centralizado.'));
+  for(let i=0;i<n;i++)p.append(sideCard(i))}
+
+function tCats(p){
+  addRow(p,btn('+ Nova categoria',()=>{S.cats.push(newCat());renderPanel();syncBrush();push()},'pri'),btn('Modelo Pirata',()=>{if(confirm('Substituir as categorias atuais pelas do modelo Pirata?')){S.cats=PIRATA.map(([a,c,q])=>newCat(a,c,q));renderPanel();syncBrush();push()}}));
+  const n=layout().length,tot=S.cats.reduce((a,c)=>a+c.qty,0);
+  if(tot!==n&&S.cats.length)addRow(p,btn(`Ajustar a 1ª categoria (${n-tot>0?'+':''}${n-tot})`,()=>{const c=S.cats[0];c.qty=Math.max(0,c.qty+n-tot);if(c.vars[0])c.vars[0].qty=c.qty;renderPanel();push()}));
+  const placed={};S.cells.slice(0,n).forEach(k=>{if(k.c)placed[k.c]=(placed[k.c]||0)+1});
+  S.cats.forEach((c,ci)=>{
+    const d=el('div','card'),h=el('div','row'),nm=inp(c,'name','text',{},()=>syncBrush());nm.className='txt';nm.style.flex='1';nm.style.minWidth='0';h.append(inp(c,'color','color'),nm);d.append(h);
+    d.append(field('Quantidade total',inp(c,'qty','number',{min:0,max:5000},fin=>{if(fin)renderPanel()})),el('div','note',`No mapa agora: <b>${placed[c.id]||0}</b>`),
+      field('Evitar vizinhos iguais',inp(c,'sep','checkbox')),field('Posição ao embaralhar',sel_(c,'pos',[['any','Qualquer'],['out','Preferir borda externa'],['in','Preferir centro']])),
+      field('Fixa (não muda de lugar)',inp(c,'fix','checkbox',{},()=>renderPanel())));
+    if(c.fix)d.append(el('div','note',`<b>Fixa:</b> os hexágonos desta categoria que já estão no mapa não saem do lugar ao embaralhar nem ao organizar${c.qty>(placed[c.id]||0)?`; as ${c.qty-(placed[c.id]||0)} peça(s) que faltam para completar a quantidade entram no sorteio`:''}. Para escolher os lugares, pinte com o Pincel ou edite o hexágono.`));
+    addRow(d,btn('↑',()=>{if(ci>0){[S.cats[ci-1],S.cats[ci]]=[S.cats[ci],S.cats[ci-1]];renderPanel();push()}}),btn('↓',()=>{if(ci<S.cats.length-1){[S.cats[ci+1],S.cats[ci]]=[S.cats[ci],S.cats[ci+1]];renderPanel();push()}}),
+      btn('Duplicar',()=>{const cc=JSON.parse(JSON.stringify(c));cc.id=uid();cc.name+=' (cópia)';S.cats.splice(ci+1,0,cc);renderPanel();syncBrush();push()}),
+      btn('Apagar',()=>{if(confirm('Apagar "'+c.name+'"?')){S.cats.splice(ci,1);S.cells.forEach(k=>{if(k.c===c.id){k.c=null;k.v=-1}});if(brush===c.id)brush=null;renderPanel();syncBrush();renderSel();push()}},'dan'));
+    const vs=c.vars.reduce((a,v)=>a+v.qty,0);
+    d.append(el('div','note',`Variações: soma <b>${vs}</b> de ${c.qty}${vs>c.qty?' <span class="bad">(passa do total; o excesso é ignorado)</span>':vs<c.qty?' (o resto usa a variação 1)':''}`));
+    c.vars.forEach((v,vi)=>{
+      const vd=el('div','var'),top=el('div','row');
+      top.append(zone('Arte',v.img,fs=>eachFile(fs.slice(0,1),id=>{v.img=id})),zone('PNG',v.ov,fs=>eachFile(fs.slice(0,1),id=>{v.ov=id})));
+      if(v.img||v.ov)top.append(btn('Limpar',()=>{v.img=v.ov=null;renderPanel();push()}));
+      if(c.vars.length>1)top.append(btn('×',()=>{c.vars.splice(vi,1);S.cells.forEach(k=>{if(k.c===c.id&&k.v>=c.vars.length)k.v=0});renderPanel();push()},'dan'));
+      vd.append(el('div','note','Variação '+(vi+1)+' · Arte = imagem do hexágono · PNG = figura por cima'),top,
+        field('Quantidade',inp(v,'qty','number',{min:0,max:5000},fin=>{if(fin)renderPanel()})),field('Zoom da arte',inp(v,'z','number',{min:.2,max:6,step:.05})),field('Tamanho do PNG',inp(v,'os','number',{min:.1,max:3,step:.05})),field('Girar aleatório ao embaralhar',inp(v,'rr','checkbox')));
+      d.append(vd)});
+    addRow(d,btn('+ Variação',()=>{c.vars.push(newVar(1));renderPanel();push()}),btn('Várias imagens → variações',()=>pickFiles(true,'image/*',fs=>addMany(c,fs))));
+    p.append(d)})}
+async function addMany(c,fs){const first=c.vars.length===1&&!c.vars[0].img&&!c.vars[0].ov;
+  await eachFile(fs,id=>{if(first&&!c.vars[0].img){c.vars[0].img=id}else{const v=newVar(1);v.img=id;c.vars.push(v)}})}
+
+async function addBgImgs(fs){
+  fs=[...fs].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  const ok=await eachFile(fs,(id,f)=>{S.bgs.push({id:uid(),name:f.name||'Imagem',img:id,mode:'cover',z:1,x:0,y:0,op:1,blur:0,vis:true})});
+  if(ok)toast(`${ok} imagem(ns) de fundo adicionada(s) na pilha.`,'ok')}
+function moveBg(i,dir){const j=i+dir;if(j<0||j>=S.bgs.length)return;[S.bgs[i],S.bgs[j]]=[S.bgs[j],S.bgs[i]];renderPanel();draw();push()}
+function bgStackUI(p){
+  p.append(el('h3',null,'Mais imagens de fundo (empilhadas)'));
+  const dz=el('div','zone');dz.style.cssText+='width:100%;height:56px;background-image:none';dz.append(el('span',null,'Solte aqui as imagens de fundo ou clique para escolher várias'));
+  dz.onclick=()=>pickFiles(true,'image/*',fs=>addBgImgs(fs));dropZone(dz,fs=>addBgImgs(fs));p.append(dz);
+  p.append(el('div','note','Cada imagem tem os mesmos ajustes do fundo acima (ajuste, zoom, deslocamento, opacidade e desfoque) e fica sempre atrás do tabuleiro. Elas se empilham: a imagem de número 1 fica por baixo e cada nova fica por cima da anterior, todas acima do fundo base. Use as setas para trocar a ordem. Sem limite de quantidade.'));
+  if(!S.bgs.length)p.append(el('div','note','Nenhuma ainda.'));
+  for(let i=S.bgs.length-1;i>=0;i--){
+    const G=S.bgs[i],card=el('div','card'),h=el('div','row');
+    if(IM[G.img])h.append(Object.assign(el('img','th'),{src:IM[G.img].url}));
+    h.append(el('b',null,`${i+1}. ${esc(G.name)}`));
+    const mk=(l,f,c)=>{const b=btn(l,f,c);b.style.padding='2px 8px';return b};
+    h.append(mk('↑',()=>moveBg(i,1)),mk('↓',()=>moveBg(i,-1)),mk(G.vis===false?'oculta':'visível',()=>{G.vis=G.vis===false;renderPanel();draw();push()}),mk('Apagar',()=>{S.bgs.splice(i,1);renderPanel();draw();push()},'dan'));
+    card.append(h,
+      field('Ajuste',sel_(G,'mode',[['cover','Cobrir'],['contain','Conter'],['stretch','Esticar'],['tile','Mosaico']])),field('Zoom',inp(G,'z','number',{min:.1,max:10,step:.05})),field('Deslocar X',inp(G,'x','number')),field('Deslocar Y',inp(G,'y','number')),
+      field('Opacidade',inp(G,'op','number',{min:0,max:1,step:.05})),field('Desfoque',inp(G,'blur','number',{min:0,max:100})));
+    if(i===S.bgs.length-1&&S.bgs.length>1)card.prepend(el('div','note','Fica por cima das outras imagens de fundo.'));
+    p.append(card)}}
+/* ===== PNGs sobrepostos aos hexágonos (com alcance: todos, categorias ou hexágonos escolhidos) ===== */
+const BLENDS=[['source-over','Normal'],['multiply','Multiplicar (escurece)'],['screen','Tela (clareia)'],['overlay','Sobrepor'],['soft-light','Luz suave'],['hard-light','Luz forte'],['lighten','Clarear'],['darken','Escurecer'],['color-dodge','Subexposição de cor'],['luminosity','Luminosidade']];
+const newHov=(img,name,sel)=>({id:uid(),name,img,x:0,y:0,size:60,op:100,rot:0,fx:false,fy:false,blend:'source-over',clip:true,rotWith:false,vis:true,scope:sel&&sel.length?'cells':'all',cats:[],cells:sel&&sel.length?[...sel]:[]});
+function ovApplies(h,k,ci){if(h.scope==='cats')return !!k.c&&(h.cats||[]).includes(k.c);if(h.scope==='cells')return ci>=0&&(h.cells||[]).includes(ci);return true}
+function ovCount(h){const n=layout().length;let q=0;for(let i=0;i<n;i++)if(ovApplies(h,S.cells[i]||{},i))q++;return q}
+/* x e y em % do raio do hexágono (0 = centro); tamanho em % do diâmetro; a imagem cabe inteira numa caixa desse tamanho */
+function drawOv(c,p,k,h){
+  const im=getImg(h.img);if(!im)return;const iw=im.width||im.naturalWidth,ih=im.height||im.naturalHeight,box=2*S.size*(h.size/100),kk=Math.min(box/iw,box/ih);
+  c.save();c.globalAlpha=Math.max(0,Math.min(1,h.op/100));if(h.blend&&h.blend!=='source-over')c.globalCompositeOperation=h.blend;
+  c.translate(p.x,p.y);if(h.rotWith)c.rotate((k.r||0)*Math.PI/3);
+  c.translate(h.x/100*S.size,h.y/100*S.size);c.rotate((h.rot||0)*D2R);c.scale(h.fx?-1:1,h.fy?-1:1);
+  c.drawImage(im,-iw*kk/2,-ih*kk/2,iw*kk,ih*kk);c.restore()}
+async function addHovImgs(fs){
+  const sel=[...selSet].filter(i=>i<layout().length);
+  const ok=await eachFile(fs,(id,f)=>{S.hov.push(newHov(id,(f.name||'PNG').replace(/\.[^.]+$/,''),sel))});
+  if(ok)toast(sel.length?`${ok} PNG importado(s) e aplicado(s) aos ${sel.length} hexágono(s) selecionado(s). Mude o alcance no cartão se quiser.`:`${ok} PNG importado(s), aplicado(s) a todos os hexágonos. Mude o alcance no cartão se quiser.`,'ok',8000)}
+function slideNum(o,k,min,max,step,after){
+  const w=el('div');w.style.cssText='display:flex;gap:6px;align-items:center;flex:1;justify-content:flex-end';
+  const r=el('input');r.type='range';r.min=min;r.max=max;r.step=step;r.value=o[k];r.style.cssText='flex:1;min-width:70px;width:auto';
+  const n=el('input');n.type='number';n.min=min;n.max=max;n.step=step;n.value=o[k];n.style.cssText='width:66px';
+  const cl=v=>Math.min(max,Math.max(min,v)),setv=v=>{o[k]=v;r.value=v;n.value=v};
+  r.oninput=()=>{setv(parseFloat(r.value));after&&after();draw()};r.onchange=()=>push();
+  n.oninput=()=>{const v=parseFloat(n.value);if(isNaN(v))return;o[k]=cl(v);r.value=o[k];after&&after();draw()};
+  n.onchange=()=>{let v=parseFloat(n.value);if(isNaN(v))v=o[k];setv(cl(v));after&&after();draw();push()};
+  w.append(r,n);w.set=setv;return w}
+function drawOvPreview(cv,h){
+  const c=cv.getContext('2d'),W=cv.width,n=layout().length;c.clearRect(0,0,W,W);c.fillStyle='#0f1d28';c.fillRect(0,0,W,W);
+  let ci=-1;for(let i=0;i<n;i++)if(ovApplies(h,S.cells[i]||{},i)){ci=i;break}
+  const hit0=ci>=0;if(ci<0)ci=0;const k=S.cells[ci]||{},sc=W*.4/S.size;
+  c.save();c.translate(W/2,W/2);c.scale(sc,sc);ORIG=false;drawCell(c,{x:0,y:0},k,-1,ci);if(!hit0&&h.vis!==false)drawOv(c,{x:0,y:0},k,h);c.restore()}
+function hovCard(h,i){
+  const card=el('div','card'),head=el('div','row'),n=layout().length;
+  card.onmouseenter=()=>{hovOv=h.id;draw()};card.onmouseleave=()=>{if(hovOv===h.id){hovOv=null;draw()}};
+  if(IM[h.img])head.append(Object.assign(el('img','th'),{src:IM[h.img].url,style:'background:#444'}));
+  const nm=inp(h,'name','text',{});nm.className='txt';nm.style.flex='1';nm.style.minWidth='0';head.append(nm);card.append(head);
+  const mk=(l,f,c)=>{const b=btn(l,f,c);b.style.padding='2px 8px';return b},tb=el('div','row');
+  tb.append(mk('↑',()=>{if(i>0){[S.hov[i-1],S.hov[i]]=[S.hov[i],S.hov[i-1]];renderPanel();draw();push()}}),mk('↓',()=>{if(i<S.hov.length-1){[S.hov[i+1],S.hov[i]]=[S.hov[i],S.hov[i+1]];renderPanel();draw();push()}}),
+    mk(h.vis===false?'oculta':'visível',()=>{h.vis=h.vis===false;renderPanel();draw();push()}),
+    mk('Duplicar',()=>{const c=JSON.parse(JSON.stringify(h));c.id=uid();c.name+=' (cópia)';S.hov.splice(i+1,0,c);renderPanel();draw();push()}),
+    mk('Apagar',()=>{S.hov.splice(i,1);hovOv=null;renderPanel();draw();push()},'dan'));card.append(tb);
+  const pv=el('canvas');pv.width=pv.height=150;pv.title='Arraste para mover; role para mudar o tamanho';pv.style.cssText='display:block;margin:6px auto;border:1px solid var(--ln);border-radius:8px;cursor:move;touch-action:none';
+  const redraw=()=>drawOvPreview(pv,h),sx=slideNum(h,'x',-300,300,1,redraw),sy=slideNum(h,'y',-300,300,1,redraw),ss=slideNum(h,'size',1,400,1,redraw),so=slideNum(h,'op',0,100,1,redraw),sr=slideNum(h,'rot',-180,180,1,redraw);
+  let dr=null;
+  pv.onpointerdown=e=>{pv.setPointerCapture(e.pointerId);dr={x:e.clientX,y:e.clientY,ox:h.x,oy:h.y}};
+  pv.onpointermove=e=>{if(!dr)return;const u=150*.4;h.x=Math.max(-300,Math.min(300,Math.round(dr.ox+(e.clientX-dr.x)/u*100)));h.y=Math.max(-300,Math.min(300,Math.round(dr.oy+(e.clientY-dr.y)/u*100)));sx.set(h.x);sy.set(h.y);redraw();draw()};
+  pv.onpointerup=()=>{if(dr){dr=null;push()}};
+  pv.onwheel=e=>{e.preventDefault();h.size=Math.max(1,Math.min(400,Math.round(h.size*(e.deltaY<0?1.06:1/1.06)*10)/10));ss.set(h.size);redraw();draw();clearTimeout(pv._t);pv._t=setTimeout(push,400)};
+  card.append(pv,el('div','note','Prévia no primeiro hexágono que recebe a imagem. Arraste a imagem na prévia para posicionar; a roda do mouse muda o tamanho.'));
+  card.append(field('Posição X (%)',sx),field('Posição Y (%)',sy),field('Tamanho (%)',ss),field('Opacidade (%)',so),field('Rotação (°)',sr));
+  addRow(card,btn('Centralizar',()=>{h.x=0;h.y=0;sx.set(0);sy.set(0);redraw();draw();push()}),btn('Tamanho do hexágono',()=>{h.size=100;ss.set(100);redraw();draw();push()}));
+  card.append(field('Espelhar na horizontal',inp(h,'fx','checkbox',{},redraw)),field('Espelhar na vertical',inp(h,'fy','checkbox',{},redraw)),
+    field('Modo de mesclagem',sel_(h,'blend',BLENDS,redraw)),field('Recortar dentro do hexágono',inp(h,'clip','checkbox',{},redraw)),field('Girar junto com o hexágono',inp(h,'rotWith','checkbox',{},redraw)));
+  card.append(el('h3',null,'Em quais hexágonos'));
+  const cnt=el('div','note');const upd=()=>{cnt.innerHTML=`Aplicada em <b>${ovCount(h)}</b> de ${n} hexágono(s).`};
+  card.append(field('Alcance',sel_(h,'scope',[['all','Todos os hexágonos'],['cats','Só determinadas categorias'],['cells','Só hexágonos específicos']],()=>renderPanel())));
+  if(h.scope==='cats'){
+    h.cats=h.cats||[];const list=el('div');
+    S.cats.forEach(c=>{const r=el('label','f'),cb=el('input'),sw=el('span');cb.type='checkbox';cb.checked=h.cats.includes(c.id);
+      cb.onchange=()=>{h.cats=cb.checked?[...new Set([...h.cats,c.id])]:h.cats.filter(x=>x!==c.id);upd();redraw();draw();push()};
+      sw.style.cssText='display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;background:'+c.color;const lb=el('span');lb.append(sw,document.createTextNode(c.name));r.append(lb,cb);list.append(r)});
+    card.append(list);if(!S.cats.length)card.append(el('div','note','Ainda não há categorias.'))}
+  if(h.scope==='cells'){
+    h.cells=h.cells||[];const cur=()=>[...selSet].filter(x=>x<n);
+    addRow(card,btn('Usar os selecionados',()=>{h.cells=cur();renderPanel();draw();push()}),btn('Adicionar selecionados',()=>{h.cells=[...new Set([...h.cells,...cur()])];renderPanel();draw();push()}),
+      btn('Remover selecionados',()=>{const s2=new Set(cur());h.cells=h.cells.filter(x=>!s2.has(x));renderPanel();draw();push()}),btn('Limpar',()=>{h.cells=[];renderPanel();draw();push()},'dan'),
+      btn('Mostrar no mapa',()=>{selSet=new Set(h.cells.filter(x=>x<n));selPrim=[...selSet][0]??-1;selLayer=null;selSide=-1;selHl.clear();selTx=null;renderSel();draw()}));
+    card.append(el('div','note','Selecione hexágonos no mapa (clique, Ctrl+clique ou a ferramenta Seleção) e use os botões acima.'))}
+  upd();card.append(cnt);
+  if(h.scope==='all')card.append(el('div','note','Passe o mouse sobre este cartão para ver, no mapa, quais hexágonos recebem a imagem (contorno laranja).'));
+  redraw();return card}
+function tHov(p){
+  p.append(el('div','note','Sobreponha PNGs com fundo transparente aos hexágonos. Importe a imagem, ajuste posição, tamanho, opacidade e rotação (arrastando na prévia ou com os controles) e escolha em quais hexágonos ela entra: todos, só algumas categorias ou só hexágonos específicos. Cada PNG tem a sua própria configuração, e vários podem ser empilhados.'));
+  const dz=el('div','zone');dz.style.cssText+='width:100%;height:56px;background-image:none';dz.append(el('span',null,'Solte aqui o PNG (ou vários) ou clique para escolher'));
+  dz.onclick=()=>pickFiles(true,'image/png,image/*',fs=>addHovImgs(fs));dropZone(dz,fs=>addHovImgs(fs));p.append(dz);
+  if(!S.hov.length)p.append(el('div','note','Nenhuma sobreposição ainda. Se houver hexágonos selecionados no mapa, o PNG já entra só neles; senão entra em todos.'));
+  S.hov.forEach((h,i)=>p.append(hovCard(h,i)))}
+function tImgs(p){
+  const G=S.bg;p.append(el('h3',null,'Fundo do mapa'));
+  addRow(p,btn('+ Várias imagens de fundo (soltas)',()=>pickFiles(true,'image/*',fs=>addLayerImgs(fs,null,'back')),'pri'));
+  p.append(el('div','note','Sem limite: cada imagem fica solta atrás dos hexágonos, com posição, tamanho, rotação e opacidade próprios (aba Camadas). Abaixo está o fundo base, de cor ou imagem única.'));
+  p.append(field('Cor',inp(G,'color','color')),field('Degradê',inp(G,'grad','checkbox')),field('Cor 2 do degradê',inp(G,'c2','color')));
+  const r=el('div','row');r.append(zone('Fundo',G.img,fs=>eachFile(fs.slice(0,1),id=>{G.img=id})));if(G.img)r.append(btn('Remover',()=>{G.img=null;renderPanel();push()},'dan'));p.append(r);
+  p.append(field('Ajuste',sel_(G,'mode',[['cover','Cobrir'],['contain','Conter'],['stretch','Esticar'],['tile','Mosaico']])),field('Zoom',inp(G,'z','number',{min:.1,max:10,step:.05})),field('Deslocar X',inp(G,'x','number')),field('Deslocar Y',inp(G,'y','number')),field('Opacidade',inp(G,'op','number',{min:0,max:1,step:.05})),field('Desfoque',inp(G,'blur','number',{min:0,max:100})));
+  bgStackUI(p);
+  p.append(el('h3',null,'Verso dos hexágonos'),field('Cor do verso',inp(S.back,'color','color')));
+  addRow(p,zone('Verso',S.back.img,fs=>eachFile(fs.slice(0,1),id=>{S.back.img=id})),btn(S.back.img?'Remover':'—',()=>{S.back.img=null;renderPanel();push()}));
+  p.append(el('div','note','Use "Ver verso" abaixo do mapa para alternar.'));
+  p.append(el('h3',null,'Importação'),field('Limitar imagens a (px, 0 = original)',inp(S.opt,'maxImg','number',{min:0,max:16000,step:256})),
+    el('div','note','Vale para as próximas imagens. 4096 mantém ótima qualidade e evita travar o navegador; use 0 para guardar o arquivo original sem reduzir.'));
+  p.append(el('h3',null,'Fontes próprias'));
+  addRow(p,btn('Importar fonte (.ttf .otf .woff2)',()=>pickFiles(false,'.ttf,.otf,.woff,.woff2',async fs=>{try{const f=await addFontFile(fs[0]);toast('Fonte "'+esc(f)+'" disponível nas listas de fonte.','ok');push();renderPanel()}catch(e){toast('Não consegui carregar essa fonte.','bad')}})));
+  S.fonts.forEach(f=>p.append(el('div','note','• '+esc(f.family))))}
+
+function layOutside(L,g){
+  if(!g.boardPoly||L.k!=='img'||!IM[L.img])return false;const b=layBox(L),a=L.rot*D2R,ca=Math.cos(a),sa=Math.sin(a);
+  for(let i=0;i<=40;i++)for(let j=0;j<=40;j++){const u=(i/40-.5)*b.w,v=(j/40-.5)*b.h;if(inPoly([L.x+u*ca-v*sa,L.y+u*sa+v*ca],g.boardPoly))return false}
+  for(const q of g.boardPoly){const dx=q[0]-L.x,dy=q[1]-L.y,u=dx*ca+dy*sa,v=-dx*sa+dy*ca;if(Math.abs(u)<=b.w/2&&Math.abs(v)<=b.h/2)return false}
+  return true}
+function delOutside(where){
+  const g=geom(),del=S.lay.filter(L=>(L.where||'top')===where&&layOutside(L,g));
+  if(!del.length){toast('Nenhuma imagem está totalmente fora do tabuleiro.');return}
+  if(!confirm(`Apagar ${del.length} imagem(ns) que estão totalmente fora do tabuleiro?`))return;
+  S.lay=S.lay.filter(L=>!del.includes(L));if(del.some(L=>L.id===selLayer))selLayer=null;renderAll(false);push();toast(`${del.length} imagem(ns) apagada(s).`,'ok')}
+function moveLay(L,dir){const w=L.where||'top';let i=S.lay.indexOf(L),j=i+dir;while(j>=0&&j<S.lay.length&&(S.lay[j].where||'top')!==w)j+=dir;if(j<0||j>=S.lay.length)return;[S.lay[i],S.lay[j]]=[S.lay[j],S.lay[i]];renderPanel();draw();push()}
+function tCam(p){
+  const g=geom();
+  addRow(p,btn('+ Imagens por cima',()=>pickFiles(true,'image/*',fs=>addLayerImgs(fs,null,'top')),'pri'),btn('+ Imagens de fundo',()=>pickFiles(true,'image/*',fs=>addLayerImgs(fs,null,'back')),'pri'),
+    btn('+ Texto',()=>{const L={id:uid(),k:'txt',where:'top',name:'Texto',t:'Título do mapa',x:g.b.x+g.b.w/2,y:g.b.y+S.margin*.6,fs:48,font:S.bd.font,color:'#ffffff',sc:'#000000',sw:0,bold:true,rot:0,op:1,lock:false,vis:true};S.lay.push(L);selLayer=L.id;selSet.clear();selSide=-1;selHl.clear();selTx=null;push();renderAll(false)}));
+  p.append(el('div','note','Sem limite de quantidade. "Por cima" fica sobre os hexágonos e as bordas; "fundo" fica atrás dos hexágonos. Arraste na tela para mover (ferramenta Mão). Dá para soltar várias imagens no mapa ou colar com Ctrl+V. As divisórias e os encaixes das bordas ficam sempre acima de todas as imagens.'));
+  p.append(el('h3',null,'Recorte ao tabuleiro'),field('Recortar imagens de cima ao tabuleiro',inp(S,'ovClip','checkbox')),field('Recortar imagens de fundo ao tabuleiro',inp(S,'bgClip','checkbox')),
+    el('div','note','O que passar da borda externa do tabuleiro deixa de aparecer, sem apagar a imagem (desligue para voltar). Para apagar de vez as que estão totalmente fora, use o botão vermelho em cada grupo.'));
+  const group=(where,title)=>{
+    const arr=S.lay.filter(L=>(L.where||'top')===where),out=arr.filter(L=>layOutside(L,g));
+    p.append(el('h3',null,`${title} (${arr.length})`));
+    if(out.length)addRow(p,btn(`Apagar ${out.length} totalmente fora do tabuleiro`,()=>delOutside(where),'dan'));
+    if(!arr.length)p.append(el('div','note','Nenhuma ainda.'));
+    arr.slice().reverse().forEach(L=>{const d=el('div','lay'+(L.id===selLayer?' on':''));
+      if(L.k==='img'&&IM[L.img])d.append(Object.assign(el('img','th'),{src:IM[L.img].url}));else d.append(el('span',null,'T'));
+      d.append(el('b',null,esc(L.name)));if(layOutside(L,g))d.append(el('span','bad','fora'));
+      const eye=btn(L.vis===false?'oculta':'visível',e=>{e.stopPropagation();L.vis=L.vis===false;renderPanel();push()});eye.style.padding='2px 6px';d.append(eye);
+      d.onclick=()=>{selLayer=L.id;selSet.clear();selSide=-1;selHl.clear();selTx=null;renderPanel();renderSel();draw()};p.append(d)})};
+  group('top','Por cima do tabuleiro');group('back','Fundo, atrás dos hexágonos')}
+async function addLayerImgs(fs,at,where='top'){const g=geom();let n=0;
+  await eachFile(fs,(id,f)=>{const m=IM[id],w=Math.min(g.b.w*(where==='back'?.5:.3),m.w);const L={id:uid(),k:'img',where,name:f.name||'Imagem',img:id,x:at?at[0]+n*20:g.b.x+g.b.w/2,y:at?at[1]+n*20:g.b.y+g.b.h/2,w,rot:0,op:1,lock:false,vis:true};n++;S.lay.push(L);selLayer=L.id;selSet.clear();selSide=-1})}
+
+function tMont(p){
+  ensureCells();p.append(field('Semente (repete o mesmo mapa)',inp(S,'seed','number',{step:1,min:0,max:2147483647})));
+  p.append(field('Se sobrar peça',sel_(S,'surplus',[['biggest','Tirar da categoria com mais peças'],['last','Tirar da última categoria'],['random','Tirar uma peça aleatória']])));
+  addRow(p,btn('Embaralhar',()=>shuffle(false),'pri'),btn('Nova semente + embaralhar',()=>{S.seed=Math.floor(Math.random()*1e9);renderPanel();shuffle(false)}));
+  p.append(el('div','note','Respeita as quantidades de cada categoria e variação. Hexágonos travados não se mexem. Nas categorias, marque "Evitar vizinhos iguais" e a posição preferida (borda externa ou centro).'));
+  p.append(el('h3',null,'Organizar'));const o={m:'lin'};
+  p.append(field('Modo',sel_(o,'m',[['lin','Por categoria, em linhas'],['esp','Por categoria, espiral do centro'],['aneis','Por categoria, de fora para dentro'],['inter','Intercalado entre categorias']])));
+  addRow(p,btn('Organizar',()=>shuffle(o.m),'pri'));
+  p.append(el('h3',null,'Orientação dos hexágonos'));
+  const ro={scope:'all',ang:'0',force:true};
+  p.append(field('Aplicar em',sel_(ro,'scope',[['all','Todos os hexágonos'],['sel','Só os selecionados'],...S.cats.map(c=>['c:'+c.id,'Só a categoria: '+c.name])])));
+  p.append(field('Garantir que todos mudem',inp(ro,'force','checkbox')));
+  addRow(p,btn('Embaralhar a orientação',()=>rotateCells('shuffle',ro),'pri'));
+  p.append(field('Orientar todos para',sel_(ro,'ang',[['0','0° (original)'],['1','60°'],['2','120°'],['3','180°'],['4','240°'],['5','300°']])));
+  addRow(p,btn('Orientar todos',()=>rotateCells('set',ro)),btn('Girar 60° ↻',()=>rotateCells('+',ro)),btn('Girar 60° ↺',()=>rotateCells('-',ro)));
+  p.append(field('Girar também ao embaralhar as posições',inp(S,'shufRot','checkbox')));
+  p.append(el('div','note','Embaralhar a orientação gira cada hexágono sem mudar de lugar. "Orientar todos" põe todos do grupo escolhido na mesma orientação. Os hexágonos travados com cadeado nunca giram. A arte de cada hexágono gira junto, na tela e nas exportações.'));
+  p.append(el('h3',null,'Edição manual'),el('div','note','Ferramentas na barra sob o mapa: Mão (clique seleciona; Ctrl+clique soma; Shift+clique troca de lugar), Seleção (arraste um retângulo) e Pincel (pinta com a categoria escolhida). Espaço ou botão do meio/direito arrasta o mapa em qualquer ferramenta. Dois dedos movem e dão zoom.'));
+  addRow(p,btn('Selecionar tudo',()=>{selSet=new Set(layout().map((_,i)=>i));selPrim=0;selLayer=null;renderSel();draw()}),btn('Travar todos',()=>{S.cells.forEach(k=>k.l=true);renderSel();push()}),btn('Destravar todos',()=>{S.cells.forEach(k=>k.l=false);renderSel();push()}),
+    btn('Girar aleatório',()=>{const rng=mul(S.seed+7);S.cells.forEach(k=>{if(!k.l)k.r=Math.floor(rng()*6)});draw();push()}),btn('Zerar rotações',()=>{S.cells.forEach(k=>{if(!k.l)k.r=0});draw();push()}),
+    btn('Limpar tudo',()=>{if(confirm('Esvaziar todos os hexágonos não travados?')){S.cells.forEach(k=>{if(!k.l){k.c=null;k.v=-1;k.r=0;k.o=null}});draw();push()}},'dan'));
+  const m=el('div','note');m.id='msg';m.innerHTML=msg;p.append(m)}
+
+/* ================= inspetor (hexágonos e camadas) ================= */
+function renderSel(){
+  const d=$('#sel');d.innerHTML='';const n=layout().length;
+  {const arr=S.hl.filter(h=>selHl.has(h.id));
+    if(arr.length){
+      d.append(el('h3',null,arr.length===1?'Destaque de aresta':arr.length+' destaques de aresta'));
+      d.append(el('div','note','Lado: <b>Dentro</b> fica dentro do hexágono ou da peça de borda que você clicou; <b>Fora</b> fica do outro lado da aresta.'));
+      hlStyleFields(d,arr,true);
+      addRow(d,btn('Usar como estilo padrão',()=>{HL_KEYS.forEach(k=>S.hlDef[k]=arr[0][k]);push();toast('Estilo padrão atualizado.','ok')}),
+        btn('Aplicar a todos os destaques',()=>{S.hl.forEach(h=>HL_KEYS.forEach(k=>{if(k!=='side')h[k]=arr[0][k]}));draw();push();toast('Estilo aplicado a todos (o lado de cada um foi mantido).','ok')}),
+        btn('Apagar',()=>{S.hl=S.hl.filter(h=>!selHl.has(h.id));selHl.clear();renderAll(false);push()},'dan'));
+      return}}
+  {const g=geom();if(selTx&&g.bd&&selTx.i<g.bd.sides.length){txInspector(d,g);return}}
+  const L=S.lay.find(l=>l.id===selLayer);
+  if(L){
+    d.append(el('h3',null,'Camada'));const nm=inp(L,'name','text');nm.className='txt';nm.style.width='100%';d.append(nm);
+    d.append(field('Fica',sel_(L,'where',[['top','Por cima do tabuleiro'],['back','Atrás dos hexágonos (fundo)']],()=>renderAll(false))));
+    if(L.k==='txt'){const t=el('textarea','txt');t.style.width='100%';t.style.minHeight='60px';t.value=L.t;t.oninput=()=>{L.t=t.value;draw()};t.onchange=push;d.append(t,
+      field('Fonte',sel_(L,'font',fontOpts())),field('Tamanho',inp(L,'fs','number',{min:4,max:1000})),field('Cor',inp(L,'color','color')),field('Negrito',inp(L,'bold','checkbox')),field('Cor do contorno',inp(L,'sc','color')),field('Contorno',inp(L,'sw','number',{min:0,max:100})))}
+    else d.append(field('Largura',inp(L,'w','number',{min:1,max:20000})));
+    d.append(field('Posição X',inp(L,'x','number',{})),field('Posição Y',inp(L,'y','number',{})),field('Rotação (°)',inp(L,'rot','number',{min:-360,max:360})),field('Opacidade',inp(L,'op','number',{min:0,max:1,step:.05})),field('Travada',inp(L,'lock','checkbox')));
+    const i=S.lay.indexOf(L);
+    addRow(d,btn('↑ frente',()=>moveLay(L,1)),btn('↓ trás',()=>moveLay(L,-1)),
+      btn('Duplicar',()=>{const c=JSON.parse(JSON.stringify(L));c.id=uid();c.x+=30;c.y+=30;S.lay.push(c);selLayer=c.id;renderAll(false);push()}),btn('Apagar',()=>{S.lay.splice(i,1);selLayer=null;renderAll(false);push()},'dan'));
+    return}
+  {const g=geom();if(selSide>=0&&g.bd&&selSide<g.bd.sides.length){d.append(el('h3',null,'Borda '+(selSide+1)),sideCard(selSide),el('div','note','Dica: solte uma imagem sobre esta borda no mapa para trocar a arte. Delete limpa a arte.'));return}}
+  const idx=[...selSet].filter(i=>i<n).sort((a,b)=>a-b);
+  if(!idx.length){d.innerHTML='<h3>Seleção</h3><div class="note">Clique em um hexágono para editar. Ctrl+clique soma à seleção; a ferramenta Seleção pega vários de uma vez. Solte uma imagem sobre um hexágono para dar a ele uma arte exclusiva.</div>';return}
+  const ks=idx.map(i=>S.cells[i]),same=f=>ks.every(k=>f(k)===f(ks[0]));
+  d.append(el('h3',null,idx.length===1?'Hexágono '+(idx[0]+1):idx.length+' hexágonos'));
+  const t={c:same(k=>k.c||'')?(ks[0].c||''):'__mix'};
+  d.append(field('Categoria',sel_(t,'c',[...(t.c==='__mix'?[['__mix','(várias)']]:[]),['','— vazio —'],...S.cats.map(c=>[c.id,c.name])],()=>{if(t.c==='__mix')return;ks.forEach(k=>{k.c=t.c||null;k.v=k.c?0:-1});renderSel()})));
+  const cat=catOf(ks[0].c);
+  if(cat&&same(k=>k.c)){const v={v:same(k=>k.v)?String(ks[0].v):'-9'};d.append(field('Variação',sel_(v,'v',[...(v.v==='-9'?[['-9','(várias)']]:[]),['-1','Só a cor'],...cat.vars.map((_,i)=>[String(i),'Variação '+(i+1)])],()=>{if(v.v!=='-9')ks.forEach(k=>k.v=+v.v)})))}
+  const r={r:same(k=>k.r||0)?String(ks[0].r||0):'-1'};d.append(field('Rotação',sel_(r,'r',[...(r.r==='-1'?[['-1','(várias)']]:[]),...[0,1,2,3,4,5].map(i=>[String(i),i*60+'°'])],()=>{if(r.r!=='-1')ks.forEach(k=>k.r=+r.r)})));
+  const lk={l:same(k=>!!k.l)&&!!ks[0].l};d.append(field('Travado (não embaralha)',inp(lk,'l','checkbox',{},()=>{ks.forEach(k=>k.l=lk.l)})));
+  d.append(el('h3',null,'Imagem exclusiva'));
+  if(same(k=>k.o)&&ks[0].o&&IM[ks[0].o])d.append(Object.assign(el('img','th'),{src:IM[ks[0].o].url}));
+  addRow(d,zone('Imagem',ks[0].o,fs=>eachFile(fs.slice(0,1),id=>{ks.forEach(k=>k.o=id)})),ks.some(k=>k.o)?btn('Remover',()=>{ks.forEach(k=>k.o=null);renderSel();draw();push()},'dan'):el('span'));
+  d.append(el('div','note','Vale só para os hexágonos selecionados, em qualquer formato de imagem.'));
+  addRow(d,btn('Esvaziar',()=>{ks.forEach(k=>{if(!k.l){k.c=null;k.v=-1;k.r=0;k.o=null}});renderSel();renderPanel();draw();push()},'dan'));
+  if(ks[0].c&&same(k=>k.c))addRow(d,btn('Selecionar mesma categoria',()=>{const c=ks[0].c;selSet=new Set(S.cells.slice(0,n).map((k,i)=>k.c===c?i:-1).filter(i=>i>=0));renderSel();draw()}))}
+
+/* ================= embaralhar e organizar ================= */
+function buildDeck(){const d=[];S.cats.forEach(c=>{let left=c.qty;c.vars.forEach((v,vi)=>{const m=Math.min(v.qty,left);for(let i=0;i<m;i++)d.push({c:c.id,v:vi});left-=m});for(;left>0;left--)d.push({c:c.id,v:c.vars.length?0:-1})});return d}
+function trimDeck(deck,n,rng){
+  const dropped={};
+  while(deck.length>n){let idx;
+    if(S.surplus==='random')idx=Math.floor(rng()*deck.length);
+    else{const cnt={};deck.forEach(q=>cnt[q.c]=(cnt[q.c]||0)+1);let cid;
+      if(S.surplus==='last'){for(let i=S.cats.length-1;i>=0;i--)if(cnt[S.cats[i].id]){cid=S.cats[i].id;break}}
+      else{let m=0;S.cats.forEach(c=>{if((cnt[c.id]||0)>m){m=cnt[c.id];cid=c.id}})}
+      for(let i=deck.length-1;i>=0;i--)if(deck[i].c===cid){idx=i;break}}
+    const q=deck.splice(idx,1)[0],c=catOf(q.c),nm=c?c.name:'?';dropped[nm]=(dropped[nm]||0)+1}
+  return dropped}
+/* orientação dos hexágonos: embaralhar girando, orientar todos, girar de 60° em 60° (cadeado sempre protege) */
+function rotateCells(kind,ro){
+  ensureCells();const n=layout().length;let idx=[];
+  if(ro.scope==='sel')idx=[...selSet].filter(i=>i<n);
+  else for(let i=0;i<n;i++){const k=S.cells[i];if(!(k.c||k.o))continue;if(ro.scope==='all'||('c:'+k.c)===ro.scope)idx.push(i)}
+  const free=idx.filter(i=>!S.cells[i].l),locked=idx.length-free.length;
+  if(!free.length){toast(ro.scope==='sel'&&!idx.length?'Selecione hexágonos no mapa primeiro (clique, Ctrl+clique ou a ferramenta Seleção).':'Nenhum hexágono para girar neste grupo (os travados com cadeado não giram).');return}
+  free.forEach(i=>{const k=S.cells[i],r=k.r||0;
+    if(kind==='shuffle')k.r=ro.force?(r+1+Math.floor(Math.random()*5))%6:Math.floor(Math.random()*6);
+    else if(kind==='set')k.r=+ro.ang;else if(kind==='+')k.r=(r+1)%6;else k.r=(r+5)%6});
+  draw();renderSel();push();
+  toast(`${free.length} hexágono(s) ${kind==='shuffle'?'com a orientação embaralhada':kind==='set'?'orientados para '+(+ro.ang*60)+'°':kind==='+'?'girados 60° no sentido horário':'girados 60° no sentido anti-horário'}${locked?` (${locked} travado(s) ficaram como estavam)`:''}.`,'ok')}
+function shuffle(mode){
+  ensureCells();const L=layout(),n=L.length,rng=mul(S.seed|0);let deck=buildDeck();
+  const free=[];let fixedN=0;
+  for(let i=0;i<n;i++){const k=S.cells[i],ct=k.c?catOf(k.c):null,fx=!!(ct&&ct.fix);
+    if(!k.l&&!fx)free.push(i);
+    else{if(fx&&!k.l)fixedN++;let x=deck.findIndex(q=>q.c===k.c&&q.v===k.v);if(x<0&&fx)x=deck.findIndex(q=>q.c===k.c);if(x>=0)deck.splice(x,1)}}
+  const dropped=trimDeck(deck,free.length,rng);
+  const put=(order,items)=>{order.forEach((ci,j)=>{const it=items[j],k=S.cells[ci];if(it){k.c=it.c;k.v=it.v;k.r=0;const c=catOf(it.c),v=c&&c.vars[it.v];if((S.shufRot&&!mode)||(v&&v.rr))k.r=Math.floor(rng()*6)}else{k.c=null;k.v=-1;k.r=0}})};
+  const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+  const dist=i=>Math.hypot(L[i].x,L[i].y),ang=i=>Math.atan2(L[i].y,L[i].x);
+  let note='';
+  if(mode){
+    let order=free.slice(),items;
+    if(mode==='esp')order.sort((a,b)=>dist(a)-dist(b)||ang(a)-ang(b));
+    if(mode==='aneis')order.sort((a,b)=>dist(b)-dist(a)||ang(a)-ang(b));
+    if(mode==='inter'){const g=S.cats.map(c=>deck.filter(q=>q.c===c.id)),o=[];let m=true;while(m){m=false;g.forEach(a=>{if(a.length){o.push(a.shift());m=true}})}items=o}
+    else{const rank=id=>S.cats.findIndex(c=>c.id===id);items=deck.slice().sort((a,b)=>rank(a.c)-rank(b.c)||a.v-b.v)}
+    items=items.slice(0,free.length);while(items.length<free.length)items.push(null);put(order,items);note='Mapa organizado.'}
+  else{
+    const pos=it=>it?(catOf(it.c)||{}).pos||'any':'any',sep=new Set(S.cats.filter(c=>c.sep).map(c=>c.id));
+    const outI=shuf(deck.filter(q=>pos(q)==='out')),inI=shuf(deck.filter(q=>pos(q)==='in')),anyI=shuf(deck.filter(q=>pos(q)==='any'));
+    let order=shuf(free.slice()).sort((a,b)=>Math.round(dist(b))-Math.round(dist(a)));   // do mais externo ao mais central, embaralhando empates
+    while(outI.length+inI.length+anyI.length>order.length)(anyI.length?anyI:inI.length?inI:outI).pop();
+    const slots=Array(order.length).fill(null);let a=0;
+    outI.forEach(it=>slots[a++]=it);let b=order.length-1;inI.forEach(it=>slots[b--]=it);
+    const midIdx=[];for(let i=a;i<=b;i++)midIdx.push(i);const rest=shuf(anyI.slice());midIdx.forEach((s,j)=>slots[s]=rest[j]||null);
+    // slots[j] corresponde a order[j]; reordena para a ordem de free
+    let items=slots,cellOf=order;
+    if(sep.size){
+      const w=SQ3*S.size,adj=L.map((p,i)=>{const r=[];for(let j=0;j<n;j++)if(j!==i&&Math.hypot(p.x-L[j].x,p.y-L[j].y)<w*1.05)r.push(j);return r});
+      const sc=its=>{const ca=S.cells.map(k=>k.c);cellOf.forEach((ci,j)=>ca[ci]=its[j]?its[j].c:null);let s=0;adj.forEach((nb,i)=>nb.forEach(j=>{if(j>i&&ca[i]&&ca[i]===ca[j]&&sep.has(ca[i]))s++}));return s};
+      let bs=sc(items);const cls=j=>(j<a?'o':j>b?'i':'m');
+      for(let t=0;t<6000&&bs>0;t++){const x=Math.floor(rng()*items.length),y=Math.floor(rng()*items.length);if(cls(x)!==cls(y)||x===y)continue;[items[x],items[y]]=[items[y],items[x]];const s=sc(items);if(s<=bs)bs=s;else[items[x],items[y]]=[items[y],items[x]]}
+      const posSep=S.cats.some(c=>c.sep&&c.pos!=='any');note=bs?(posSep?`Ainda há ${bs} par(es) de vizinhos iguais: a posição preferida (borda externa/centro) concentra categorias e impede separá-las. Mude para "Qualquer" as categorias com "Evitar vizinhos iguais". `:`Ainda há ${bs} par(es) de vizinhos iguais; tente outra semente ou reduza as categorias marcadas. `):'Nenhum vizinho igual nas categorias marcadas. '}
+    free.forEach(ci=>{S.cells[ci].c=null;S.cells[ci].v=-1;S.cells[ci].r=0});put(cellOf,items);note='Mapa embaralhado. '+note}
+  const total=deck.length;
+  if(fixedN)note+=` ${fixedN} hexágono(s) de categoria fixa ficaram no lugar.`;
+  const dn=Object.entries(dropped);if(dn.length)note+=` <span class="bad">Havia peças a mais que hexágonos: removi ${dn.map(([k,v])=>v+' de '+esc(k)).join(', ')}.</span>`;
+  if(total<free.length)note+=` <span class="bad">${free.length-total} hexágono(s) ficaram vazios.</span>`;
+  msg=note;const m=$('#msg');if(m)m.innerHTML=msg;renderSel();draw();push()}
+
+/* ================= interação no canvas ================= */
+const P=new Map();let G0=null,lastPinch=null,spaceDown=false,strokeSet=null;
+const xy=e=>{const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
+function toWorld(x,y){const g=geom();return[(x-view.x)/view.z+g.b.x,(y-view.y)/view.z+g.b.y]}
+function hit(w){const g=geom();let b=-1,bd=S.size*.98;g.L.forEach((p,i)=>{const d=Math.hypot(p.x-w[0],p.y-w[1]);if(d<bd){bd=d;b=i}});return b}
+function hitPiece(w){const g=geom();if(!g.bd)return -1;for(let i=0;i<g.bd.sides.length;i++)if(inPoly(w,piecePts(g.bd,i)))return i;return -1}
+function hitLayer(w,where){for(let i=S.lay.length-1;i>=0;i--){const L=S.lay[i];if(L.vis===false||(L.where||'top')!==where)continue;const b=layBox(L),a=-L.rot*D2R,dx=w[0]-L.x,dy=w[1]-L.y,lx=dx*Math.cos(a)-dy*Math.sin(a),ly=dx*Math.sin(a)+dy*Math.cos(a);if(Math.abs(lx)<=b.w/2&&Math.abs(ly)<=b.h/2)return L}return null}
+function pinchInfo(){const[a,b]=[...P.values()];return{d:Math.hypot(a[0]-b[0],a[1]-b[1])||1,mx:(a[0]+b[0])/2,my:(a[1]+b[1])/2}}
+function paintAt(w){const i=hit(w);if(i<0||strokeSet.has(i))return;strokeSet.add(i);ensureCells();const k=S.cells[i];if(k.l)return;
+  if(brush==='__e'){k.c=null;k.v=-1;k.o=null;k.r=0}
+  else{const c=catOf(brush);if(!c)return;k.c=c.id;k.v=c.vars.length?Math.floor(Math.random()*c.vars.length):-1;k.o=null;k.r=c.vars[k.v]&&c.vars[k.v].rr?Math.floor(Math.random()*6):0}
+  draw()}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);const[x,y]=xy(e);P.set(e.pointerId,[x,y]);
+  if(P.size>=2){G0={mode:'pinch'};lastPinch=pinchInfo();return}
+  const w=toWorld(x,y);G0={mode:'hand',x,y,vx:view.x,vy:view.y,moved:false,shift:e.shiftKey,ctrl:e.ctrlKey||e.metaKey,alt:e.altKey,w};
+  if(e.button===1||e.button===2||spaceDown){G0.mode='pan';return}
+  if(tool==='brush'){if(!brush){toast('Escolha uma categoria no seletor ao lado do Pincel.');G0=null;return}G0.mode='paint';strokeSet=new Set();paintAt(w);return}
+  if(tool==='edge'){G0.mode='edgeclick';return}
+  if(tool==='rect'){G0.mode='rect';rectSel={x0:w[0],y0:w[1],x1:w[0],y1:w[1]};return}
+  const ti=hitText(w);
+  if(ti&&(S.bd.textTop||!hitLayer(w,'top'))){selSet.clear();selLayer=null;selSide=-1;selHl.clear();selTx={i:ti.i,k:ti.k};const o0=txGet(ti.i,ti.k)||{};G0.mode='txdrag';G0.tx={i:ti.i,k:ti.k,ox:o0.dx||0,oy:o0.dy||0};renderSel();draw();return}
+  let L=hitLayer(w,'top');
+  if(!L&&hit(w)<0&&hitPiece(w)<0)L=hitLayer(w,'back');
+  if(L&&!L.lock){selLayer=L.id;selSet.clear();selSide=-1;selHl.clear();selTx=null;G0.mode='layer';G0.L=L;G0.ox=L.x;G0.oy=L.y;renderSel();draw()}});
+cv.addEventListener('pointermove',e=>{
+  if(!P.has(e.pointerId))return;const[x,y]=xy(e);P.set(e.pointerId,[x,y]);
+  if(P.size>=2&&lastPinch){const n=pinchInfo();zoomAt(lastPinch.mx,lastPinch.my,n.d/lastPinch.d);view.x+=n.mx-lastPinch.mx;view.y+=n.my-lastPinch.my;lastPinch=n;draw();return}
+  if(!G0)return;const w=toWorld(x,y),dx=x-G0.x,dy=y-G0.y;if(Math.hypot(dx,dy)>4)G0.moved=true;
+  if(G0.mode==='pan'||((G0.mode==='hand'||G0.mode==='edgeclick')&&G0.moved)){userMoved=true;view.x=G0.vx+dx;view.y=G0.vy+dy;draw()}
+  else if(G0.mode==='paint')paintAt(w);
+  else if(G0.mode==='rect'){rectSel.x1=w[0];rectSel.y1=w[1];draw()}
+  else if(G0.mode==='txdrag'){const sd=geom().bd.sides[G0.tx.i],dw=[w[0]-G0.w[0],w[1]-G0.w[1]],o2=txTarget(G0.tx.i,G0.tx.k);
+    o2.dx=+(G0.tx.ox+dw[0]*sd.t[0]+dw[1]*sd.t[1]).toFixed(2);o2.dy=+(G0.tx.oy+dw[0]*sd.t[1]-dw[1]*sd.t[0]).toFixed(2);draw()}
+  else if(G0.mode==='layer'){G0.L.x=G0.ox+(w[0]-G0.w[0]);G0.L.y=G0.oy+(w[1]-G0.w[1]);draw()}});
+function endPtr(e){
+  const ok=e.type==='pointerup';
+  if(G0&&P.size<=1&&ok){
+    const[x,y]=xy(e),w=toWorld(x,y),n=layout().length;
+    if(G0.mode==='hand'&&!G0.moved){
+      const i=hit(w);selLayer=null;selSide=-1;selHl.clear();selTx=null;
+      if(i<0){const hp=hitPiece(w);if(hp>=0){selSet.clear();selPrim=-1;selSide=hp}else if(!G0.ctrl&&!G0.shift){selSet.clear();selPrim=-1}}
+      else if(G0.shift&&selPrim>=0&&selPrim!==i){ensureCells();[S.cells[selPrim],S.cells[i]]=[S.cells[i],S.cells[selPrim]];selSet=new Set([i]);selPrim=i;push()}
+      else if(G0.ctrl){selSet.has(i)?selSet.delete(i):selSet.add(i);selPrim=i}
+      else{selSet=new Set([i]);selPrim=i}
+      renderSel();draw()}
+    else if(G0.mode==='edgeclick'&&!G0.moved){edgeClick(w,G0)}
+    else if(G0.mode==='rect'&&rectSel){
+      const g=geom(),a=Math.min(rectSel.x0,rectSel.x1),b=Math.max(rectSel.x0,rectSel.x1),c2=Math.min(rectSel.y0,rectSel.y1),d=Math.max(rectSel.y0,rectSel.y1);
+      if(!(G0.ctrl||G0.shift))selSet.clear();g.L.forEach((p,i)=>{if(p.x>=a&&p.x<=b&&p.y>=c2&&p.y<=d)selSet.add(i)});selPrim=[...selSet][0]??-1;selLayer=null;selSide=-1;selHl.clear();selTx=null;rectSel=null;renderSel();draw()}
+    else if(G0.mode==='paint'){push();renderPanel();renderSel()}
+    else if(G0.mode==='layer'&&G0.moved){push();renderSel()}
+    else if(G0.mode==='txdrag'){if(G0.moved)push();renderSel()}}
+  rectSel=null;P.delete(e.pointerId);if(P.size<2)lastPinch=null;if(!P.size){G0=null;strokeSet=null}}
+cv.addEventListener('pointermove',e=>{if(tool!=='edge'||P.size)return;const[x,y]=xy(e),he=hitEdge(toWorld(x,y)),k=he?JSON.stringify(he):'',o=hoverEdge?JSON.stringify(hoverEdge):'';if(k!==o){hoverEdge=he;draw()}});
+cv.addEventListener('pointerleave',()=>{if(hoverEdge){hoverEdge=null;draw()}});
+cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
+cv.addEventListener('wheel',e=>{e.preventDefault();const[x,y]=xy(e);zoomAt(x,y,Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)))},{passive:false});
+dropZone(cv,async fs=>{
+  const proj=fs.find(f=>/\.(zip|json)$/i.test(f.name));if(proj){openProject(proj);return}
+  const rect=cv.getBoundingClientRect(),at=window._dropAt?toWorld(window._dropAt[0]-rect.left,window._dropAt[1]-rect.top):null,i=at?hit(at):-1;
+  if(i>=0){const ids=selSet.has(i)&&selSet.size>1?[...selSet]:[i];ensureCells();await eachFile(fs.slice(0,1),id=>ids.forEach(j=>S.cells[j].o=id))}
+  else{const hp=at?hitPiece(at):-1;if(hp>=0)assignSideArt(fs,hp);else addLayerImgs(fs,at,'top')}});
+cv.addEventListener('dragover',e=>{window._dropAt=[e.clientX,e.clientY]});
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files.length)toast('Solte as imagens sobre o mapa ou sobre um quadrado de imagem (Arte, PNG, Fundo…).')});
+addEventListener('paste',e=>{const fs=[...(e.clipboardData?e.clipboardData.files:[])].filter(f=>/^image\//.test(f.type));if(fs.length&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();addLayerImgs(fs,null)}});
+addEventListener('keydown',e=>{
+  const typing=/INPUT|TEXTAREA|SELECT/.test(e.target.tagName),k=e.key.toLowerCase(),mod=e.ctrlKey||e.metaKey;
+  if(k===' '&&!typing){spaceDown=true;cv.style.cursor='grabbing';e.preventDefault()}
+  if(mod&&k==='s'){e.preventDefault();saveProject();return}
+  if(typing)return;
+  if(mod&&k==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+  else if(mod&&k==='y'){e.preventDefault();redo()}
+  else if(mod&&k==='a'){e.preventDefault();selSet=new Set(layout().map((_,i)=>i));renderSel();draw()}
+  else if(k==='escape'){selSet.clear();selLayer=null;selSide=-1;selHl.clear();selTx=null;rectSel=null;renderSel();draw()}
+  else if(k==='delete'||k==='backspace'){
+    const L=S.lay.find(l=>l.id===selLayer);
+    if(selTx&&selTx.k>=0&&S.bd.tn&&S.bd.tn[selTx.i]){S.bd.tn[selTx.i][selTx.k]={};renderSel();draw();push()}
+    else if(selHl.size){S.hl=S.hl.filter(h=>!selHl.has(h.id));selHl.clear();renderAll(false);push()}
+    else if(L){S.lay.splice(S.lay.indexOf(L),1);selLayer=null;renderAll(false);push()}
+    else if(selSide>=0){const sd=S.bd.sd[selSide];if(sd)sd.img=sd.ov=null;renderAll(false);push()}
+    else if(selSet.size){selSet.forEach(i=>{const c=S.cells[i];if(c&&!c.l){c.c=null;c.v=-1;c.r=0;c.o=null}});renderSel();renderPanel();draw();push()}}
+  else if(k.startsWith('arrow')){const L=S.lay.find(l=>l.id===selLayer);if(L&&!L.lock){const s=e.shiftKey?10:1;if(k==='arrowleft')L.x-=s;if(k==='arrowright')L.x+=s;if(k==='arrowup')L.y-=s;if(k==='arrowdown')L.y+=s;e.preventDefault();renderSel();draw()}}});
+addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;cv.style.cursor=(tool==='brush'||tool==='edge')?'crosshair':'grab';push()}});
+function syncBrush(){
+  const s=$('#brushSel'),cur=brush;s.innerHTML='';[['','Categoria do pincel…'],...S.cats.map(c=>[c.id,c.name]),['__e','Borracha']].forEach(([v,l])=>{const o=el('option',null,esc(l));o.value=v;s.append(o)});
+  if(cur&&(cur==='__e'||catOf(cur)))s.value=cur;else{brush=null;s.value=''}
+  document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',b.dataset.t===tool))}
+$('#brushSel').onchange=e=>{brush=e.target.value||null;if(brush){tool='brush';syncBrush();cv.style.cursor='crosshair'}};
+document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.t;cv.style.cursor=(tool==='brush'||tool==='edge')?'crosshair':tool==='rect'?'cell':'grab';if(tool!=='edge')hoverEdge=null;syncBrush();draw()});
+$('#zFit').onclick=fit;$('#zIn').onclick=()=>zoomAt(cv.clientWidth/2,cv.clientHeight/2,1.25);$('#zOut').onclick=()=>zoomAt(cv.clientWidth/2,cv.clientHeight/2,.8);
+$('#zBack').onclick=()=>{S.showBack=!S.showBack;$('#zBack').textContent=S.showBack?'Ver frente':'Ver verso';draw()};
+new ResizeObserver(()=>{if(!userMoved)lastSig='';draw()}).observe($('#stage'));
+
+/* ================= exportação ================= */
+function progress(title){
+  const box=$('#prog'),o={cancelled:false,set(f,t){$('#progB').style.width=Math.round(f*100)+'%';$('#progS').textContent=t||''},close(){box.style.display='none'}};
+  $('#progT').textContent=title;o.set(0,'Preparando…');box.style.display='flex';$('#progC').onclick=()=>{o.cancelled=true;$('#progS').textContent='Cancelando…'};return o}
+const chk=pr=>{if(pr.cancelled)throw'cancel'};
+const MAXPX=4e8,MAXSIDE=30000;
+function expDims(){
+  const E=S.exp,g=geom();let W=Math.round(E.wcm/2.54*E.dpi);const H=Math.round(W*g.b.h/g.b.w),r=g.b.h/g.b.w;
+  const maxW=Math.floor(Math.min(MAXSIDE,MAXSIDE/r,Math.sqrt(MAXPX/r)));
+  return{W,H,g,sc:W/g.b.w,maxW,err:(W>maxW||W<16||H<16)?(W<16||H<16?'Largura ou DPI pequenos demais.':`Muito grande: ${W} × ${H} px passa do limite seguro (${maxW} px de largura). Reduza a largura em cm ou o DPI.`):null}}
+async function prepExport(){for(const id in IM)if(IM[id].img)try{await IM[id].img.decode()}catch(e){}try{await document.fonts.ready}catch(e){}}
+function drawRegion(c,ox,oy,sc,g,transp){
+  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,c.canvas.width,c.canvas.height);
+  if(!transp){c.fillStyle='#ffffff';c.fillRect(0,0,c.canvas.width,c.canvas.height)}
+  c.setTransform(sc,0,0,sc,-ox-g.b.x*sc,-oy-g.b.y*sc);ORIG=true;try{renderScene(c,g,{transparent:transp})}finally{ORIG=false}}
+const u32=n=>new Uint8Array([n>>>24,n>>>16&255,n>>>8&255,n&255]);
+function pngChunk(type,data){const t=new TextEncoder().encode(type),b=new Uint8Array(4+data.length);b.set(t);b.set(data,4);const out=new Uint8Array(12+data.length);out.set(u32(data.length));out.set(b,4);out.set(u32(crc32(b)),8+data.length);return out}
+async function encodePNG(W,H,dpi,transp,g,sc,pr){
+  if(typeof CompressionStream==='undefined')throw new Error('Este navegador não tem CompressionStream. Use Chrome, Edge ou Safari recentes.');
+  const ch=transp?4:3,sh=Math.max(16,Math.min(512,Math.floor(12e6/W))),strip=document.createElement('canvas');strip.width=W;strip.height=sh;
+  const x=strip.getContext('2d',{willReadFrequently:true});if(!x)throw new Error('Sem memória para criar a imagem.');
+  const hdr=new Uint8Array(13),dv=new DataView(hdr.buffer);dv.setUint32(0,W);dv.setUint32(4,H);hdr[8]=8;hdr[9]=transp?6:2;
+  const ppm=Math.round(dpi/.0254),ph=new Uint8Array(9);new DataView(ph.buffer).setUint32(0,ppm);new DataView(ph.buffer).setUint32(4,ppm);ph[8]=1;
+  const cs=new CompressionStream('deflate'),wr=cs.writable.getWriter(),rd=cs.readable.getReader(),parts=[];
+  const pump=(async()=>{for(;;){const{done,value}=await rd.read();if(done)break;parts.push(pngChunk('IDAT',value))}})();
+  pump.catch(()=>{});
+  try{
+    for(let y0=0;y0<H;y0+=sh){
+      chk(pr);const h=Math.min(sh,H-y0);drawRegion(x,0,y0,sc,g,transp);
+      const d=x.getImageData(0,0,W,h).data,rb=W*ch+1,raw=new Uint8Array(rb*h);
+      for(let y=0;y<h;y++){let o=y*rb,s=y*W*4;raw[o++]=1;
+        if(ch===4){for(let i=0;i<W*4;i++)raw[o+i]=(d[s+i]-(i>=4?d[s+i-4]:0))&255}
+        else{for(let i=0;i<W;i++){const a=s+i*4,b=o+i*3;raw[b]=(d[a]-(i?d[a-4]:0))&255;raw[b+1]=(d[a+1]-(i?d[a-3]:0))&255;raw[b+2]=(d[a+2]-(i?d[a-2]:0))&255}}}
+      await wr.write(raw);pr.set((y0+h)/H*.97,`Linhas ${y0+h} de ${H}`);await sleep(0)}
+    await wr.close();await pump}
+  catch(e){try{await wr.abort()}catch(_){}throw e}
+  return new Blob([new Uint8Array([137,80,78,71,13,10,26,10]),pngChunk('IHDR',hdr),pngChunk('pHYs',ph),...parts,pngChunk('IEND',new Uint8Array(0))],{type:'image/png'})}
+async function exportPNG(){
+  const E=S.exp,d=expDims();if(d.err){toast(d.err,'bad',9000);return}
+  const pr=progress('Gerando PNG…');
+  try{await prepExport();const b=await encodePNG(d.W,d.H,E.dpi,E.transp&&!S.showBack,d.g,d.sc,pr);chk(pr);download(b,'mapa.png');toast(`PNG gerado: ${d.W} × ${d.H} px, ${(b.size/1048576).toFixed(1)} MB.`,'ok')}
+  catch(e){if(e!=='cancel')toast('Não foi possível gerar o PNG: '+esc(e.message||e),'bad',9000)}finally{pr.close()}}
+
+/* ---- PDF próprio (sem biblioteca externa) ---- */
+function buildPDF(pages){
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0,nid=3;const pids=[],f=n=>(+n).toFixed(3);
+  const add=d=>{const u=typeof d==='string'?enc.encode(d):d;parts.push(u);len+=u.length},beg=id=>{offs[id]=len;add(`${id} 0 obj\n`)},end=()=>add('endobj\n');
+  add('%PDF-1.7\n%\xE2\xE3\xCF\xD3\n');
+  for(const pg of pages){
+    const ids=pg.imgs.map(im=>{const id=nid++;beg(id);add(`<< /Type /XObject /Subtype /Image /Width ${im.wpx} /Height ${im.hpx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${im.kind==='jpeg'?'DCTDecode':'FlateDecode'} /Length ${im.bytes.length} >>\nstream\n`);add(im.bytes);add('\nendstream\n');end();return id});
+    let cs='';pg.imgs.forEach((im,i)=>{cs+=`q ${f(im.w)} 0 0 ${f(im.h)} ${f(im.x)} ${f(im.y)} cm /Im${i} Do Q\n`});
+    (pg.marks||[]).forEach(m=>{cs+=`0 G 0.5 w ${f(m[0])} ${f(m[1])} m ${f(m[2])} ${f(m[3])} l S\n`});
+    (pg.texts||[]).forEach(t=>{cs+=`BT /F1 ${t.size} Tf ${f(t.x)} ${f(t.y)} Td (${t.s.replace(/[^\x20-\x7E]/g,'').replace(/([()\\])/g,'\\$1')}) Tj ET\n`});
+    const cb=enc.encode(cs),cid=nid++;beg(cid);add(`<< /Length ${cb.length} >>\nstream\n`);add(cb);add('\nendstream\n');end();
+    const pid=nid++;pids.push(pid);beg(pid);
+    add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(pg.w)} ${f(pg.h)}] ${pg.unit>1?`/UserUnit ${pg.unit} `:''}/Resources << /XObject << ${ids.map((id,i)=>`/Im${i} ${id} 0 R`).join(' ')} >> /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents ${cid} 0 R >>\n`);end()}
+  beg(2);add(`<< /Type /Pages /Kids [${pids.map(i=>i+' 0 R').join(' ')}] /Count ${pids.length} >>\n`);end();
+  beg(1);add('<< /Type /Catalog /Pages 2 0 R >>\n');end();
+  const xo=len;let xr=`xref\n0 ${nid}\n0000000000 65535 f \n`;for(let i=1;i<nid;i++)xr+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+  add(xr+`trailer\n<< /Size ${nid} /Root 1 0 R /Info << /Title (Mapa) /Producer (Gerador de Mapas Hexagonais) >> >>\nstartxref\n${xo}\n%%EOF\n`);
+  return new Blob(parts,{type:'application/pdf'})}
+async function regionToPdfImages(pg,tc,tx,g,sc,rx,ry,rw,rh,px,pyTop,ppp,pr,prog0,prog1){
+  const E=S.exp,T=2400,nT=Math.ceil(rw/T)*Math.ceil(rh/T);let done=0;
+  for(let ty=0;ty<rh;ty+=T)for(let tX=0;tX<rw;tX+=T){
+    chk(pr);const w2=Math.min(T+1,rw-tX),h2=Math.min(T+1,rh-ty);tc.width=w2;tc.height=h2;
+    drawRegion(tx,rx+tX,ry+ty,sc,g,false);let bytes;
+    if(E.lossless){const d=tx.getImageData(0,0,w2,h2).data,raw=new Uint8Array(w2*h2*3);for(let i=0,j=0;i<d.length;i+=4,j+=3){raw[j]=d[i];raw[j+1]=d[i+1];raw[j+2]=d[i+2]}bytes=await deflate(raw)}
+    else bytes=new Uint8Array(await(await blobOf(tc,'image/jpeg',E.q)).arrayBuffer());
+    pg.imgs.push({kind:E.lossless?'flate':'jpeg',bytes,wpx:w2,hpx:h2,x:px+tX*ppp,y:pyTop-(ty+h2)*ppp,w:w2*ppp,h:h2*ppp});
+    done++;pr.set(prog0+(prog1-prog0)*done/nT,'Montando o PDF…');await sleep(0)}}
+const PAPERS={A4:[210,297],A3:[297,420],A2:[420,594],A1:[594,841],Carta:[215.9,279.4],Tabloide:[279.4,431.8]};
+async function exportPDF(){
+  const E=S.exp,d=expDims();if(d.err){toast(d.err,'bad',9000);return}
+  const pr=progress('Gerando PDF…'),pt=72/25.4,tc=document.createElement('canvas'),tx=tc.getContext('2d',{willReadFrequently:true});
+  try{
+    await prepExport();const pages=[],g=d.g,Wmm=E.wcm*10,Hmm=Wmm*g.b.h/g.b.w,ppm=E.dpi/25.4;
+    if(E.pdfMode==='one'){
+      const unit=Math.max(1,Math.max(Wmm,Hmm)*pt/14400),u=pt/unit,pg={w:Wmm*u,h:Hmm*u,unit:1,imgs:[]};
+      await regionToPdfImages(pg,tc,tx,g,d.sc,0,0,d.W,d.H,0,Hmm*u,Wmm*u/d.W,pr,0,.97);pages.push(pg);
+      if(unit>1)toast(`O formato PDF não aceita páginas acima de 5,08 m. A página saiu em escala 1:${unit.toFixed(2)}; imprima ampliando ${unit.toFixed(2)}× para chegar a ${E.wcm} cm. Para tamanho real sem ampliar, use "Dividir em páginas" ou o PNG.`,'',16000)}
+    else{
+      let[pw0,ph0]=E.paper==='Personalizado'?[E.pw,E.ph]:PAPERS[E.paper];if(Wmm>Hmm&&pw0<ph0)[pw0,ph0]=[ph0,pw0];
+      const m=E.pm,aw=pw0-2*m,ah=ph0-2*m,ov=Math.min(E.ov,Math.min(aw,ah)/2);if(aw<=20||ah<=20)throw new Error('Margem grande demais para este papel.');
+      const stx=aw-ov,sty=ah-ov,cols=Math.max(1,Math.ceil((Wmm-ov)/stx)),rows=Math.max(1,Math.ceil((Hmm-ov)/sty));
+      if(cols*rows>400)throw new Error(`Seriam ${cols*rows} páginas. Reduza o tamanho do mapa ou use papel maior.`);
+      let n=0;
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+        const x0=c*stx,y0=r*sty,rwmm=Math.min(aw,Wmm-x0),rhmm=Math.min(ah,Hmm-y0);
+        const pg={w:pw0*pt,h:ph0*pt,unit:1,imgs:[],marks:[],texts:[]},top=(ph0-m)*pt,L=m*pt;
+        await regionToPdfImages(pg,tc,tx,g,d.sc,Math.round(x0*ppm),Math.round(y0*ppm),Math.min(d.W-Math.round(x0*ppm),Math.round(rwmm*ppm)),Math.min(d.H-Math.round(y0*ppm),Math.round(rhmm*ppm)),L,top,pt/ppm,pr,n/(rows*cols)*.97,(n+1)/(rows*cols)*.97);
+        if(E.marks){const k=4*pt,t=m*pt,R=(pw0-m)*pt,B=m*pt,Tp=top;[[L,Tp],[R,Tp],[L,B],[R,B]].forEach(([cx_,cy_])=>{pg.marks.push([cx_-k,cy_,cx_+k,cy_],[cx_,cy_-k,cx_,cy_+k])});pg.texts.push({x:L,y:t/2-3,size:8,s:`Linha ${r+1}/${rows}  Coluna ${c+1}/${cols}  (sobreposicao ${ov} mm)`})}
+        pages.push(pg);n++}}
+    chk(pr);const b=buildPDF(pages);download(b,'mapa.pdf');toast(`PDF gerado: ${pages.length} página(s), ${(b.size/1048576).toFixed(1)} MB.`,'ok')}
+  catch(e){if(e!=='cancel')toast('Não foi possível gerar o PDF: '+esc(e.message||e),'bad',9000)}finally{pr.close()}}
+
+/* ---- ZIP (sem compressão) ---- */
+async function makeZip(files){
+  const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  for(const f of files){const u8=f.u8||new Uint8Array(await f.blob.arrayBuffer()),nm=enc.encode(f.name),crc=crc32(u8),lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(12,0x21,true);lh.setUint32(14,crc,true);lh.setUint32(18,u8.length,true);lh.setUint32(22,u8.length,true);lh.setUint16(26,nm.length,true);
+    parts.push(lh,nm,u8);cd.push({nm,crc,size:u8.length,off});off+=30+nm.length+u8.length}
+  let cs=0;for(const e of cd){const h=new DataView(new ArrayBuffer(46));h.setUint32(0,0x02014b50,true);h.setUint16(4,20,true);h.setUint16(6,20,true);h.setUint16(8,0x0800,true);h.setUint16(14,0x21,true);h.setUint32(16,e.crc,true);h.setUint32(20,e.size,true);h.setUint32(24,e.size,true);h.setUint16(28,e.nm.length,true);h.setUint32(42,e.off,true);parts.push(h,e.nm);cs+=46+e.nm.length}
+  const en=new DataView(new ArrayBuffer(22));en.setUint32(0,0x06054b50,true);en.setUint16(8,cd.length,true);en.setUint16(10,cd.length,true);en.setUint32(12,cs,true);en.setUint32(16,off,true);parts.push(en);
+  return new Blob(parts,{type:'application/zip'})}
+async function readZip(file){
+  const buf=new Uint8Array(await file.arrayBuffer()),dv=new DataView(buf.buffer);let e=buf.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error('zip inválido');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out={},dec=new TextDecoder();
+  for(let i=0;i<n;i++){const method=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el_=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true),name=dec.decode(buf.subarray(p+46,p+46+nl));
+    const st=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);let data=buf.subarray(st,st+cs);if(method===8)data=await inflateRaw(data);else if(method!==0)throw new Error('compressão não suportada');out[name]=data;p+=46+nl+el_+cl}
+  return out}
+const EXT={'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif','image/avif':'avif','image/bmp':'bmp'};
+async function saveProject(){
+  try{const used=usedAssetIds(S),assets=[],files=[];
+    for(const id of used){const m=IM[id];const ext=m.kind==='font'?(/\.(\w+)$/.exec(m.name)||[0,'ttf'])[1]:(EXT[m.type]||'bin'),path=`assets/${id}.${ext}`;assets.push({id,name:m.name,type:m.type,kind:m.kind,family:m.family,w:m.w,h:m.h,key:m.key,path});files.push({name:path,blob:m.blob})}
+    files.unshift({name:'projeto.json',u8:new TextEncoder().encode(JSON.stringify({app:'hexmap',v:2,S,assets}))});
+    download(await makeZip(files),'mapa-projeto.zip');toast('Projeto salvo (arquivo .zip com as imagens dentro).','ok')}
+  catch(e){toast('Não consegui salvar o projeto: '+esc(e.message),'bad')}}
+async function openProject(file){
+  try{let st,recs=[];
+    if(/\.json$/i.test(file.name)){const o=JSON.parse(await file.text());st=o.S;if(o.IMGS){for(const id in o.IMGS){const b=await(await fetch(o.IMGS[id])).blob();recs.push({id,name:'imagem-'+id,type:b.type,blob:b,key:'legacy'+id})}}
+      if(st.decos){st.lay=(st.lay||[]).concat(st.decos.map(d=>({id:uid(),k:'img',name:'Imagem',img:d.img,x:d.x,y:d.y,w:d.w,rot:d.rot,op:d.op,lock:false,vis:true})));delete st.decos}}
+    else{const z=await readZip(file),pj=z['projeto.json'];if(!pj)throw new Error('não é um projeto deste gerador');const o=JSON.parse(new TextDecoder().decode(pj));st=o.S;
+      for(const a of o.assets||[]){const u=z[a.path];if(!u)continue;recs.push({id:a.id,name:a.name,type:a.type,kind:a.kind,family:a.family,key:a.key,blob:new Blob([u],{type:a.type||''})})}}
+    const failed=await restoreAssets(recs),keep=new Set(recs.map(r=>r.id));
+    for(const id of Object.keys(IM))if(!keep.has(id)){if(IM[id].url)URL.revokeObjectURL(IM[id].url);delete IM[id];try{await asDel(id)}catch(e){}}
+    for(const r of recs)try{await asSet(r)}catch(e){}
+    if(failed)toast(`${failed} arquivo(s) do projeto não puderam ser lidos.`,'bad',9000);
+    S=deepMerge(defState(),st);msg='';ensureCells();hist=[];hi=-1;selSet.clear();selLayer=null;selSide=-1;selHl.clear();selTx=null;push();renderAll();toast('Projeto aberto.','ok')}
+  catch(e){toast('Não consegui abrir esse projeto: '+(e instanceof SyntaxError?'o arquivo não é um projeto válido':esc(e.message)),'bad',9000)}}
+function exportCSV(){
+  const n=layout().length,cnt={};S.cells.slice(0,n).forEach(k=>{if(k.c){const key=k.c+'|'+k.v;cnt[key]=(cnt[key]||0)+1}});
+  let t='Categoria;Variação;Quantidade no mapa\n';Object.keys(cnt).forEach(key=>{const[id,v]=key.split('|'),c=catOf(id);if(c)t+=`"${c.name.replace(/"/g,'""')}";${+v>=0?+v+1:'-'};${cnt[key]}\n`});
+  download(new Blob(['\ufeff'+t],{type:'text/csv'}),'pecas.csv')}
+async function exportHexZip(){
+  const E=S.exp,pr=progress('Gerando peças…');
+  try{await prepExport();const n=layout().length,r=S.size-S.gap/SQ3,pad=S.ow,bw=S.flat?2*r:SQ3*r,bh=S.flat?SQ3*r:2*r,sc=E.hexPx/bw,items=[];
+    if(E.hexMode==='all'){S.cells.slice(0,n).forEach((k,i)=>items.push({k,i,name:String(i+1).padStart(3,'0')}))}
+    else{const cnt={};S.cells.slice(0,n).forEach(k=>{if(k.c){const key=k.c+'|'+k.v+'|'+(k.o||'');cnt[key]=cnt[key]||{k:{...k,r:0},q:0};cnt[key].q++}});
+      Object.values(cnt).forEach(o=>{const c=catOf(o.k.c);items.push({k:o.k,i:-1,name:`${c?c.name:'peca'}_v${o.k.v+1}_x${o.q}`})})}
+    if(!items.length)throw new Error('Nenhum hexágono preenchido para exportar.');
+    const files=[],used={},cvs=document.createElement('canvas');cvs.width=Math.ceil((bw+2*pad)*sc);cvs.height=Math.ceil((bh+2*pad)*sc);const c=cvs.getContext('2d');
+    if(cvs.width>8192)throw new Error('Tamanho da peça grande demais; reduza os pixels.');
+    for(let j=0;j<items.length;j++){chk(pr);const it=items[j];c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,cvs.width,cvs.height);c.setTransform(sc,0,0,sc,cvs.width/2,cvs.height/2);ORIG=true;try{drawCell(c,{x:0,y:0},it.k,-1,it.i)}finally{ORIG=false}
+      let nm=it.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\-]+/g,'-').replace(/^-+|-+$/g,'')||'peca';if(used[nm]){used[nm]++;nm+='_'+used[nm]}else used[nm]=1;
+      files.push({name:nm+'.png',blob:await blobOf(cvs,'image/png')});pr.set((j+1)/items.length*.9,`Peça ${j+1} de ${items.length}`);await sleep(0)}
+    chk(pr);download(await makeZip(files),'pecas.zip');toast(`${files.length} peça(s) exportada(s).`,'ok')}
+  catch(e){if(e!=='cancel')toast('Não foi possível exportar as peças: '+esc(e.message||e),'bad',9000)}finally{pr.close()}}
+
+async function exportBorderZip(){
+  const d=expDims(),g=geom();
+  if(!g.bd){toast('Não há bordas para exportar. Ligue as bordas na aba Bordas.','bad');return}
+  if(d.err){toast(d.err,'bad',9000);return}
+  const pr=progress('Gerando peças das bordas…');
+  try{await prepExport();const n=g.bd.sides.length,files=[],pad=Math.ceil(Math.max(S.bd.lw,2)),sc=d.sc;
+    for(let i=0;i<n;i++){chk(pr);const fr=pframe(g.bd,i),W=Math.ceil((fr.bw+2*pad)*sc),H=Math.ceil((fr.bh+2*pad)*sc);
+      if(W>16000||H>16000)throw new Error('Peça grande demais; reduza a largura em cm ou o DPI.');
+      const cvs=document.createElement('canvas');cvs.width=W;cvs.height=H;const c=cvs.getContext('2d');
+      c.setTransform(sc,0,0,sc,(-fr.minU+pad)*sc,(-fr.minV+pad)*sc);c.rotate(-fr.ang);
+      ORIG=true;try{pieceFill(c,g,i,{base:true,cut:true,exp:true});pieceText(c,g,i,{noflip:true})}finally{ORIG=false}
+      files.push({name:`borda-${i+1}.png`,blob:await blobOf(cvs,'image/png')});pr.set((i+1)/n*.9,`Peça ${i+1} de ${n}`);await sleep(0)}
+    chk(pr);download(await makeZip(files),'bordas.zip');toast(`${files.length} peça(s) de borda exportada(s), no mesmo tamanho real do mapa exportado.`,'ok')}
+  catch(e){if(e!=='cancel')toast('Não foi possível exportar as bordas: '+esc(e.message||e),'bad',9000)}finally{pr.close()}}
+/* ===== todas as peças separadas, em folhas A4 ===== */
+/* favo de mel dentro de um retângulo (hexágono "ponta para cima": largura w, altura h); devolve centros relativos ao retângulo */
+function honey(W,H,w,h,sp){
+  const px=w+sp,dy=px*0.8660254,R=H>=h-1e-9?Math.floor((H-h)/dy+1e-9)+1:0;let best=null;
+  for(const v of[0,1]){const pts=[];
+    for(let r=0;r<R;r++){const sh=((r+v)%2)*px/2,n=W-sh>=w-1e-9?Math.floor((W-sh-w)/px+1e-9)+1:0;for(let j=0;j<n;j++)pts.push([sh+j*px+w/2,r*dy+h/2])}
+    if(!best||pts.length>best.length)best=pts}
+  return best||[]}
+function hexFill(rect,count,k,sp,center){
+  const s=S.size,flat=S.flat,wP=(flat?2:SQ3)*s*k,hP=(flat?SQ3:2)*s*k;
+  let pts=flat?honey(rect.h,rect.w,hP,wP,sp).map(q=>[q[1],q[0]]):honey(rect.w,rect.h,wP,hP,sp);
+  pts=pts.slice(0,Math.max(0,count));if(!pts.length)return[];
+  let dx=0;if(center){const a=Math.min(...pts.map(q=>q[0]-wP/2)),b=Math.max(...pts.map(q=>q[0]+wP/2));dx=(rect.w-(b-a))/2-a}
+  return pts.map(q=>[rect.x+q[0]+dx,rect.y+q[1]])}
+/* planeja as folhas: bordas primeiro (maiores antes), depois hexágonos no favo, aproveitando os espaços que sobram */
+function planOnce(diaCm,maxB){
+  const C=S.exp.pc,g=geom(),s=S.size,k=C.mode==='flat'?diaCm*10/(SQ3*s):diaCm*10/(2*s),m=C.margin,PW=210-2*m,PH=297-2*m,sp=Math.max(C.gap,S.ow*k+.6),pages=[];
+  const borders=[];
+  if(C.bord&&g.bd)for(let i=0;i<g.bd.sides.length;i++){const fr=pframe(g.bd,i),pw=Math.max(S.bd.lw,2);borders.push({i,w:(fr.bw+2*pw)*k,h:(fr.bh+2*pw)*k})}
+  const fitScale=borders.length?Math.min(1,...borders.map(b=>Math.min(PW/Math.min(b.w,b.h),PH/Math.max(b.w,b.h)))):1;
+  const newPage=o=>{const W=o==='L'?297:210,H=o==='L'?210:297,pg={orient:o,W,H,items:[],free:[{x:m,y:m,w:W-2*m,h:H-2*m}]};pages.push(pg);return pg};
+  const tryPlace=(pg,b)=>{let best=null;
+    pg.free.forEach((F,fi)=>[[b.w,b.h,false],[b.h,b.w,true]].forEach(([ww,hh,r])=>{if(ww<=F.w+1e-6&&hh<=F.h+1e-6){const sc=Math.min(F.w-ww,F.h-hh);if(!best||sc<best.sc)best={fi,ww,hh,r,sc}}}));return best};
+  const put=(pg,b,t)=>{const F=pg.free[t.fi];pg.free.splice(t.fi,1);pg.items.push({type:'bord',i:b.i,x:F.x,y:F.y,w:t.ww,h:t.hh,rot:t.r});
+    const rw=F.w-t.ww-sp,rh=F.h-t.hh-sp;
+    if(F.w-t.ww<F.h-t.hh){if(rw>1)pg.free.push({x:F.x+t.ww+sp,y:F.y,w:rw,h:t.hh});if(rh>1)pg.free.push({x:F.x,y:F.y+t.hh+sp,w:F.w,h:rh})}
+    else{if(rh>1)pg.free.push({x:F.x,y:F.y+t.hh+sp,w:t.ww,h:rh});if(rw>1)pg.free.push({x:F.x+t.ww+sp,y:F.y,w:rw,h:F.h})}};
+  if(fitScale>=1){
+    borders.slice().sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)||b.w*b.h-a.w*a.h).forEach(b=>{
+      let bp=null,bt=null;pages.forEach(pg=>{if(pg.items.length>=maxB)return;const t=tryPlace(pg,b);if(t&&(!bt||t.sc<bt.sc)){bt=t;bp=pg}});
+      if(!bt){const pref=b.w>=b.h?'L':'P',pg=newPage(pref);let t=tryPlace(pg,b);if(!t){pages.pop();const pg2=newPage(pref==='L'?'P':'L');t=tryPlace(pg2,b);bp=pg2}else bp=pg;bt=t}
+      put(bp,b,bt)})}
+  const rank=id=>S.cats.findIndex(c=>c.id===id),n=g.L.length,cells=[];
+  if(C.hex)S.cells.slice(0,n).forEach((c,i)=>{if(c&&c.c)cells.push({c,i})});
+  cells.sort((a,b)=>rank(a.c.c)-rank(b.c.c)||a.c.v-b.c.v||a.i-b.i);
+  const nHex=cells.length;let ci=0,hexTooBig=false;
+  pages.slice().forEach(pg=>{pg.free.slice().sort((a,b)=>b.w*b.h-a.w*a.h).forEach(F=>{if(ci>=nHex)return;hexFill(F,nHex-ci,k,sp,false).forEach(q=>pg.items.push({type:'hex',cell:cells[ci++],cx:q[0],cy:q[1]}))})});
+  let hexPerPage=0;
+  while(ci<nHex){
+    const P1={x:m,y:m,w:210-2*m,h:297-2*m},L1={x:m,y:m,w:297-2*m,h:210-2*m},cp=hexFill(P1,1e9,k,sp,true).length,cl=hexFill(L1,1e9,k,sp,true).length;
+    if(Math.max(cp,cl)<1){hexTooBig=true;break}
+    const o=cl>cp?'L':'P',pg=newPage(o);hexPerPage=Math.max(cp,cl);
+    hexFill(pg.free[0],nHex-ci,k,sp,true).forEach(q=>pg.items.push({type:'hex',cell:cells[ci++],cx:q[0],cy:q[1]}));pg.free=[]}
+  return{pages,k,sp,nHex,nBord:borders.length,fitScale,hexTooBig,hexPerPage,tipCm:2*s*k/10,flatCm:SQ3*s*k/10}}
+/* testa quantas bordas por folha rendem menos folhas no total e fica com o melhor arranjo */
+function planPieces(diaCm){
+  const g=geom(),nb=S.exp.pc.bord&&g.bd?g.bd.sides.length:0;let best=planOnce(diaCm,99);
+  for(let mb=nb-1;mb>=1;mb--){const q=planOnce(diaCm,mb);if(q.pages.length<best.pages.length)best=q}
+  return best}
+function drawHexPiece(c,cell,idx,cx,cy,k,mm2px){
+  const kp=k*mm2px,g0=S.gap,sb=S.showBack,sn=S.showNums;c.save();c.translate(cx*mm2px,cy*mm2px);c.scale(kp,kp);
+  S.gap=0;S.showBack=false;
+  try{drawCell(c,{x:0,y:0},cell,sn?idx:-1,idx);
+    if(!sn&&S.exp.pc.nums){c.font=`700 ${S.size*.2}px Arial,Helvetica,sans-serif`;c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';c.lineWidth=S.size*.05;c.strokeStyle='rgba(0,0,0,.7)';c.fillStyle='#ffffff';c.strokeText(String(idx+1),0,S.size*.6);c.fillText(String(idx+1),0,S.size*.6)}}
+  finally{S.gap=g0;S.showBack=sb}
+  c.restore()}
+function drawBorderPiece(c,g,it,k,mm2px){
+  const fr=pframe(g.bd,it.i),pw=Math.max(S.bd.lw,2),Ht=fr.bh+2*pw;
+  c.save();c.translate(it.x*mm2px,it.y*mm2px);c.scale(k*mm2px,k*mm2px);
+  if(it.rot){c.translate(Ht,0);c.rotate(Math.PI/2)}
+  c.translate(pw-fr.minU,pw-fr.minV);c.rotate(-fr.ang);
+  pieceFill(c,g,it.i,{base:true,cut:true,exp:true});pieceText(c,g,it.i,{noflip:true});c.restore()}
+async function exportPiecesPDF(){
+  const C=S.exp.pc,g=geom();let dia=C.dia,plan=planPieces(dia);
+  if(plan.fitScale<1){
+    const nd=Math.floor(dia*plan.fitScale*0.995*100)/100;
+    if(!confirm(`Com hexágonos de ${dia} cm, a maior borda não cabe numa folha A4. Reduzir o hexágono para ${nd} cm para tudo caber? (Cancelar interrompe a geração.)`))return;
+    dia=nd;plan=planPieces(dia)}
+  if(plan.hexTooBig){toast('O hexágono é maior que a área útil da folha A4. Reduza o diâmetro ou a margem.','bad',9000);return}
+  if(!plan.nHex&&!plan.nBord){toast('Não há peças para gerar (hexágonos preenchidos ou bordas).','bad');return}
+  const pr=progress('Gerando o PDF das peças…'),dpi=clamp(C.dpi,100,600),mm2px=dpi/25.4,pt=72/25.4,pdf=[],saved={sn:S.showNums,sb:S.showBack};
+  try{
+    await prepExport();ORIG=true;const total=plan.pages.length+(C.guide?1:0);let done=0;
+    const addPage=async(W,H,draw,caption)=>{
+      chk(pr);const cvs=document.createElement('canvas');cvs.width=Math.round(W*mm2px);cvs.height=Math.round(H*mm2px);
+      const c=cvs.getContext('2d',{willReadFrequently:!!C.lossless});if(!c)throw new Error('Sem memória para criar a folha. Reduza o DPI.');
+      c.fillStyle='#ffffff';c.fillRect(0,0,cvs.width,cvs.height);c.imageSmoothingQuality='high';draw(c);
+      let bytes,kind;
+      if(C.lossless){const d=c.getImageData(0,0,cvs.width,cvs.height).data,raw=new Uint8Array(cvs.width*cvs.height*3);for(let i=0,j=0;i<d.length;i+=4,j+=3){raw[j]=d[i];raw[j+1]=d[i+1];raw[j+2]=d[i+2]}bytes=await deflate(raw);kind='flate'}
+      else{bytes=new Uint8Array(await(await blobOf(cvs,'image/jpeg',.95)).arrayBuffer());kind='jpeg'}
+      pdf.push({w:W*pt,h:H*pt,unit:1,imgs:[{kind,bytes,wpx:cvs.width,hpx:cvs.height,x:0,y:0,w:W*pt,h:H*pt}],texts:[{x:Math.max(C.margin,6)*pt,y:2.5*pt,size:7,s:caption}]});
+      done++;pr.set(done/total*.97,`Folha ${done} de ${total}`);await sleep(0)};
+    if(C.guide){
+      const b=g.b,o=b.w>b.h?'L':'P',W=o==='L'?297:210,H=o==='L'?210:297,m=Math.max(C.margin,6),aw=(W-2*m)*mm2px,ah=(H-2*m-6)*mm2px,sc=Math.min(aw/b.w,ah/b.h);
+      await addPage(W,H,c=>{c.save();c.translate((W*mm2px-b.w*sc)/2,m*mm2px+(ah-b.h*sc)/2);c.scale(sc,sc);c.translate(-b.x,-b.y);S.showNums=true;S.showBack=false;try{renderScene(c,g,{})}finally{S.showNums=saved.sn;S.showBack=saved.sb}c.restore()},
+        `Guia de montagem - os numeros indicam a posicao de cada hexagono no mapa - folha 1 de ${total}`)}
+    for(let pi=0;pi<plan.pages.length;pi++){
+      const pg=plan.pages[pi],nh=pg.items.filter(x=>x.type==='hex').length,nb=pg.items.filter(x=>x.type==='bord').length;
+      await addPage(pg.W,pg.H,c=>{pg.items.forEach(it=>{if(it.type==='hex')drawHexPiece(c,it.cell.c,it.cell.i,it.cx,it.cy,plan.k,mm2px);else drawBorderPiece(c,g,it,plan.k,mm2px)})},
+        `Folha ${done+1} de ${total} - ${nh} hexagonos${nb?` e ${nb} borda(s)`:''} - hexagono de ${(plan.tipCm).toFixed(2)} cm de ponta a ponta`)}
+    chk(pr);const blob=buildPDF(pdf);download(blob,'pecas.pdf');
+    toast(`PDF das peças gerado: ${total} folha(s) A4, ${plan.nHex} hexágono(s) e ${plan.nBord} borda(s), ${(blob.size/1048576).toFixed(1)} MB. Imprima em 100% (tamanho real), sem "ajustar à página".`,'ok',12000)}
+  catch(e){if(e!=='cancel')toast('Não foi possível gerar o PDF das peças: '+esc(e.message||e),'bad',9000)}
+  finally{ORIG=false;S.showNums=saved.sn;S.showBack=saved.sb;pr.close()}}
+function tExp(p){
+  const E=S.exp;
+  p.append(field('Largura do mapa (cm)',inp(E,'wcm','number',{min:2,max:2000,step:.5},()=>info())),field('Resolução (DPI)',inp(E,'dpi','number',{min:30,max:1200},()=>info())));
+  const i=el('div','note');i.id='info';p.append(i);
+  function info(){const d=expDims(),hcm=(E.wcm*d.g.b.h/d.g.b.w).toFixed(1);
+    i.innerHTML=`Tamanho final: <b>${d.W} × ${d.H} px</b> (${E.wcm} × ${hcm} cm, ${(d.W*d.H/1e6).toFixed(0)} megapixels)`+(d.err?`<br><span class="bad">${d.err}</span>`:'')+(Math.max(E.wcm,+hcm)>508?'<br>PDF de página única: acima de 508 cm a página sai em escala reduzida (o aviso mostra quanto).':'')}
+  info();
+  addRow(p,btn('Usar o máximo permitido',()=>{const d=expDims();E.dpi=Math.max(30,Math.floor(Math.min(E.dpi,d.maxW/(E.wcm/2.54))));renderPanel();push()}));
+  p.append(el('h3',null,'PNG'),field('Fundo transparente',inp(E,'transp','checkbox')),el('div','note','Gerado em faixas, sem limite de tamanho do canvas do navegador; o DPI fica gravado no arquivo para impressão.'));
+  addRow(p,btn('Baixar PNG',exportPNG,'pri'));
+  p.append(el('h3',null,'PDF'),field('Modo',sel_(E,'pdfMode',[['one','Uma página com o mapa inteiro'],['pages','Dividir em páginas (imprimir em partes)']],()=>renderPanel())));
+  if(E.pdfMode==='pages'){p.append(field('Papel',sel_(E,'paper',[...Object.keys(PAPERS).map(k=>[k,k]),['Personalizado','Personalizado']],()=>renderPanel())));
+    if(E.paper==='Personalizado')p.append(field('Largura do papel (mm)',inp(E,'pw','number',{min:50,max:2000})),field('Altura do papel (mm)',inp(E,'ph','number',{min:50,max:2000})));
+    p.append(field('Margem (mm)',inp(E,'pm','number',{min:0,max:50})),field('Sobreposição entre páginas (mm)',inp(E,'ov','number',{min:0,max:50})),field('Marcas de corte e legenda',inp(E,'marks','checkbox')))}
+  p.append(field('Sem perdas (arquivo maior)',inp(E,'lossless','checkbox',{},()=>renderPanel())));
+  if(!E.lossless)p.append(field('Qualidade JPEG (0.5–1)',inp(E,'q','number',{min:.5,max:1,step:.01})));
+  p.append(el('div','note','O PDF contém a imagem em alta resolução (não vetorial). O formato PDF limita a página a 5,08 m; acima disso use "Dividir em páginas" ou o PNG.'));
+  addRow(p,btn('Baixar PDF',exportPDF,'pri'));
+  p.append(el('h3',null,'Peças soltas e dados'),field('Largura de cada peça (px)',inp(E,'hexPx','number',{min:100,max:4000,step:50})),field('Quais peças',sel_(E,'hexMode',[['uniq','Uma por categoria/variação'],['all','Todas as posições do mapa']])));
+  addRow(p,btn('Baixar peças (.zip de PNGs)',exportHexZip),btn('Peças das bordas (.zip)',exportBorderZip),btn('Lista de peças (CSV)',exportCSV));
+  p.append(el('div','note','Projeto completo (com as imagens) fica em "Salvar projeto" no topo.'));
+  p.append(el('h3',null,'Todas as peças separadas (PDF em folhas A4)'));
+  const C=E.pc;
+  p.append(field('Diâmetro do hexágono (cm)',inp(C,'dia','number',{min:1,max:25,step:.1},()=>pcInfo())),
+    field('Diâmetro medido',sel_(C,'mode',[['tip','De ponta a ponta'],['flat','De lado a lado']],()=>pcInfo())),
+    field('Margem da folha (mm)',inp(C,'margin','number',{min:3,max:30,step:.5},()=>pcInfo())),
+    field('Espaço entre as peças (mm)',inp(C,'gap','number',{min:1,max:20,step:.5},()=>pcInfo())),
+    field('Resolução (DPI)',inp(C,'dpi','number',{min:100,max:600,step:25})),
+    field('Incluir hexágonos',inp(C,'hex','checkbox',{},()=>pcInfo())),
+    field('Incluir bordas',inp(C,'bord','checkbox',{},()=>pcInfo())),
+    field('Folha-guia com o mapa montado',inp(C,'guide','checkbox',{},()=>pcInfo())),
+    field('Número da posição em cada hexágono',inp(C,'nums','checkbox')),
+    field('Sem perdas (arquivo maior)',inp(C,'lossless','checkbox')));
+  const pi=el('div','note');pi.id='pcinfo';p.append(pi);
+  function pcInfo(){
+    const pl=planPieces(C.dia),pages=pl.pages.length+(C.guide?1:0);
+    pi.innerHTML=`<b>${pl.nHex}</b> hexágono(s) e <b>${pl.nBord}</b> borda(s) em <b>${pages}</b> folha(s) A4${C.guide?' (contando a folha-guia)':''}. Hexágono: <b>${pl.tipCm.toFixed(2)} cm</b> de ponta a ponta, <b>${pl.flatCm.toFixed(2)} cm</b> de lado a lado.`
+      +(pl.hexPerPage?` Cabem até ${pl.hexPerPage} hexágonos por folha cheia.`:'')
+      +(pl.fitScale<1?`<br><span class="bad">A maior borda não cabe numa folha A4 com esse tamanho. Ao gerar, será oferecido reduzir o hexágono para ${(Math.floor(C.dia*pl.fitScale*0.995*100)/100)} cm.</span>`:'')
+      +(pl.hexTooBig?'<br><span class="bad">O hexágono é maior que a área útil da folha.</span>':'')}
+  pcInfo();
+  addRow(p,btn('Gerar PDF das peças',exportPiecesPDF,'pri'));
+  p.append(el('div','note','Cada peça sai no tamanho real, com o contorno de corte. As bordas vêm primeiro e os hexágonos preenchem o restante de cada folha em arranjo de favo, agrupados por categoria; a folha-guia mostra o mapa montado com os números. Imprima em 100%, sem ajustar à página.'))}
+
+/* ================= topo e início ================= */
+$('#bSave').onclick=saveProject;
+$('#bOpen').onclick=()=>pickFiles(false,'.zip,.json',fs=>openProject(fs[0]));
+$('#bUndo').onclick=undo;$('#bRedo').onclick=redo;$('#bExp').onclick=()=>{tab='Exportar';renderTabs();renderPanel()};
+$('#bNew').onclick=()=>$('#dlgNew').showModal();$('#dlgX').onclick=()=>$('#dlgNew').close();
+document.querySelectorAll('[data-tpl]').forEach(b=>b.onclick=()=>{
+  S=tpl(b.dataset.tpl);msg='';ensureCells();selSet.clear();selLayer=null;selSide=-1;selHl.clear();selTx=null;hist=[];hi=-1;$('#dlgNew').close();
+  if(S.cats.length)shuffle(false);push();renderAll()});
+(async function init(){
+  let loaded=false;
+  try{const recs=await asAll(),st=await kvGet('state');
+    if(st){const o=JSON.parse(st);await restoreAssets(recs);S=deepMerge(defState(),o);const used=usedAssetIds(S);for(const r of recs)if(!used.has(r.id)){try{await asDel(r.id)}catch(e){}}loaded=true}
+    setSaved(true)}
+  catch(e){setSaved(false);loaded=false;S=defState()}
+  if(!loaded){S=tpl('pirata')}
+  ensureCells();if(!loaded)shuffle(false);
+  hist=[];hi=-1;push();renderAll();
+  document.fonts&&document.fonts.ready.then(()=>draw());
+  window.__ready=true})();
+</script>
+</body>
+</html>
